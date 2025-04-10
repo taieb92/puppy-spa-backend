@@ -23,17 +23,17 @@ model WaitingList {
 }
 
 model WaitingListEntry {
-  id             Int        @id @default(autoincrement())
-  waitingListId  Int        @map("waiting_list_id")
-  ownerName      String?    @map("owner_name")
-  puppyName      String?    @map("puppy_name")
-  serviceRequired String     @map("service_required")
-  arrivalTime    DateTime   @map("arrival_time")
-  position       Int
-  status         String     @default("waiting")
-  createdAt      DateTime   @default(now()) @map("created_at")
-  updatedAt      DateTime   @updatedAt @map("updated_at")
-  waitingList    WaitingList @relation(fields: [waitingListId], references: [id])
+  id              Int           @id @default(autoincrement())
+  ownerName       String?
+  puppyName       String?
+  serviceRequired String
+  arrivalTime     DateTime
+  position        Int
+  status          String        @default("waiting")
+  waitingListId   Int
+  waitingList     WaitingList   @relation(fields: [waitingListId], references: [id])
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
-  @@map("waiting_list_entries")
+  @@index([waitingListId])
 }

@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsDate, IsInt, Min, IsOptional, ValidateIf } from 'class-validator';
+import { IsString, IsNotEmpty, IsDate, IsOptional } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateWaitingListEntryDto {
@@ -18,18 +18,4 @@ export class CreateWaitingListEntryDto {
   @IsDate()
   @Type(() => Date)
   arrivalTime: Date;
-
-  @IsNotEmpty()
-  @IsInt()
-  @Min(1)
-  position: number;
-
-  @IsNotEmpty()
-  @IsInt()
-  waitingListId: number;
-
-  // Custom validation to ensure at least one of ownerName or puppyName is provided
-  validateAtLeastOneName() {
-    return !!(this.ownerName || this.puppyName);
-  }
 } 
