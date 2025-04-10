@@ -5,42 +5,51 @@ import { PrismaService } from '../prisma/prisma.service';
 export class SearchService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async searchByOwnerName(ownerName: string) {
-    return this.prisma.waitingListEntry.findMany({
-      where: {
-        ownerName: {
-          contains: ownerName.toLowerCase(),
-        },
-      },
-      include: {
-        waitingList: true,
-      },
-    });
-  }
+  /**
+   * Searches for entries across all waiting lists
+   * @param query - The search query string
+   * @returns Matching entries with their associated waiting lists
+   */
+  async searchEntries(query: string) {
+    if (!query || query.trim() === '') {
+      return [];
+    }
 
-  async searchByPuppyName(puppyName: string) {
-    return this.prisma.waitingListEntry.findMany({
-      where: {
-        puppyName: {
-          contains: puppyName.toLowerCase(),
-        },
-      },
-      include: {
-        waitingList: true,
-      },
-    });
-  }
+    const searchQuery = query.trim();
 
-  async searchByService(service: string) {
     return this.prisma.waitingListEntry.findMany({
       where: {
-        serviceRequired: {
-          contains: service.toLowerCase(),
-        },
+        OR: [
+          {
+            ownerName: {
+              contains: searchQuery,
+            },
+          },
+          {
+            puppyName: {
+              contains: searchQuery,
+            },
+          },
+          {
+            serviceRequired: {
+              contains: searchQuery,
+            },
+          },
+        ],
       },
       include: {
         waitingList: true,
       },
+      orderBy: [
+        {
+          waitingList: {
+            date: 'desc',
+          },
+        },
+        {
+          position: 'asc',
+        },
+      ],
     });
   }
 } 
