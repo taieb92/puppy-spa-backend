@@ -2,7 +2,7 @@ import { Controller, Get, Post, Body, Param, Query, HttpCode, HttpStatus } from 
 import { WaitingListsService } from './waiting-lists.service';
 import { CreateWaitingListDto } from './dto/create-waiting-list.dto';
 import { PaginationDto } from '../common/dto/pagination.dto';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBody } from '@nestjs/swagger';
 
 /**
  * Controller for managing waiting lists
@@ -21,6 +21,7 @@ export class WaitingListsController {
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create a new waiting list' })
+  @ApiBody({ type: CreateWaitingListDto })
   @ApiResponse({ status: HttpStatus.CREATED, description: 'Waiting list created successfully' })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Invalid input data' })
   @ApiResponse({ status: HttpStatus.CONFLICT, description: 'Waiting list already exists for this date' })
@@ -38,20 +39,6 @@ export class WaitingListsController {
   @ApiResponse({ status: HttpStatus.OK, description: 'Waiting lists retrieved successfully' })
   async getAllWaitingLists(@Query() paginationDto: PaginationDto) {
     return this.waitingListsService.getAllWaitingLists(paginationDto);
-  }
-
-  /**
-   * Retrieves a specific waiting list by its ID
-   * @param id - The ID of the waiting list to retrieve
-   * @returns The requested waiting list
-   */
-  @Get(':id')
-  @ApiOperation({ summary: 'Get a waiting list by ID' })
-  @ApiParam({ name: 'id', description: 'The ID of the waiting list' })
-  @ApiResponse({ status: HttpStatus.OK, description: 'Waiting list retrieved successfully' })
-  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Waiting list not found' })
-  async getWaitingList(@Param('id') id: string) {
-    return this.waitingListsService.getWaitingList(+id);
   }
 
   /**
