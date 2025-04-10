@@ -25,8 +25,8 @@ model WaitingList {
 model WaitingListEntry {
   id             Int        @id @default(autoincrement())
   waitingListId  Int        @map("waiting_list_id")
-  ownerName      String     @map("owner_name")
-  puppyName      String     @map("puppy_name")
+  ownerName      String?    @map("owner_name")
+  puppyName      String?    @map("puppy_name")
   serviceRequired String     @map("service_required")
   arrivalTime    DateTime   @map("arrival_time")
   position       Int

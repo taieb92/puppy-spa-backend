@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateWaitingListEntryDto } from './dto/create-waiting-list-entry.dto';
 import { UpdateEntryStatusDto } from './dto/update-entry-status.dto';
@@ -16,13 +16,18 @@ export class WaitingListEntriesService {
    * @param desiredPosition - Optional desired position for the new entry
    * @returns The created entry
    * @throws NotFoundException if the waiting list doesn't exist
-   * @throws ConflictException if the desired position is invalid
+   * @throws BadRequestException if neither ownerName nor puppyName is provided
    */
   async createEntry(
     listId: number,
     entryData: Omit<CreateWaitingListEntryDto, 'waitingListId'>,
     desiredPosition?: number,
   ) {
+    // Validate that at least one name is provided
+    if (!entryData.ownerName && !entryData.puppyName) {
+      throw new BadRequestException('Either ownerName or puppyName must be provided');
+    }
+
     try {
       return await this.prisma.$transaction(async (tx) => {
         // Verify the waiting list exists
@@ -91,7 +96,9 @@ export class WaitingListEntriesService {
         });
       });
     } catch (error) {
-      if (error instanceof NotFoundException || error instanceof ConflictException) {
+      if (error instanceof NotFoundException || 
+          error instanceof ConflictException || 
+          error instanceof BadRequestException) {
         throw error;
       }
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
