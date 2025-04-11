@@ -31,7 +31,7 @@ export class SearchService {
         },
       });
 
-      return entries.map(entry => ({
+      return entries.map((entry) => ({
         id: entry.id,
         ownerName: entry.ownerName,
         puppyName: entry.puppyName,
@@ -45,4 +45,4 @@ export class SearchService {
       throw new InternalServerErrorException('Failed to search entries');
     }
   }
-} 
+}

@@ -5,4 +5,4 @@ export class UpdateEntryPositionDto {
   @IsInt()
   @Min(1)
   position: number;
-} 
+}

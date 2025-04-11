@@ -21,4 +21,4 @@ export class WaitingListEntryResponseDto {
 
   @ApiProperty({ description: 'The current status of the entry' })
   status: string;
-} 
+}

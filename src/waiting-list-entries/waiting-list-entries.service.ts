@@ -1,10 +1,16 @@
-import { Injectable, NotFoundException, ConflictException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateWaitingListEntryDto } from './dto/create-waiting-list-entry.dto';
 import { UpdateEntryStatusDto } from './dto/update-entry-status.dto';
 import { UpdateEntryPositionDto } from './dto/update-entry-position.dto';
 import { WaitingListEntryResponseDto } from './dto/waiting-list-entry-response.dto';
-import { Prisma } from '@prisma/client';
+import { Prisma, WaitingListEntry } from '@prisma/client';
 
 @Injectable()
 export class WaitingListEntriesService {
@@ -95,9 +101,11 @@ export class WaitingListEntriesService {
         return this.mapToResponseDto(entry);
       });
     } catch (error) {
-      if (error instanceof NotFoundException || 
-          error instanceof ConflictException || 
-          error instanceof BadRequestException) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof ConflictException ||
+        error instanceof BadRequestException
+      ) {
         throw error;
       }
       console.error('Error creating entry:', error);
@@ -113,7 +121,10 @@ export class WaitingListEntriesService {
    * @throws NotFoundException if the waiting list doesn't exist
    * @throws InternalServerErrorException if the query fails
    */
-  async getEntriesByListId(listId: number, status?: string): Promise<WaitingListEntryResponseDto[]> {
+  async getEntriesByListId(
+    listId: number,
+    status?: string,
+  ): Promise<WaitingListEntryResponseDto[]> {
     try {
       const waitingList = await this.prisma.waitingList.findUnique({
         where: { id: listId },
@@ -133,7 +144,7 @@ export class WaitingListEntriesService {
         },
       });
 
-      return entries.map(this.mapToResponseDto);
+      return entries.map((entry) => this.mapToResponseDto(entry));
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;
@@ -151,7 +162,10 @@ export class WaitingListEntriesService {
    * @throws NotFoundException if the entry doesn't exist
    * @throws InternalServerErrorException if the update fails
    */
-  async updateEntryStatus(entryId: number, statusDto: UpdateEntryStatusDto): Promise<WaitingListEntryResponseDto> {
+  async updateEntryStatus(
+    entryId: number,
+    statusDto: UpdateEntryStatusDto,
+  ): Promise<WaitingListEntryResponseDto> {
     try {
       const entry = await this.prisma.waitingListEntry.update({
         where: { id: entryId },
@@ -177,7 +191,10 @@ export class WaitingListEntriesService {
    * @throws NotFoundException if the entry doesn't exist
    * @throws InternalServerErrorException if the update fails
    */
-  async updateEntryPosition(entryId: number, positionDto: UpdateEntryPositionDto): Promise<WaitingListEntryResponseDto> {
+  async updateEntryPosition(
+    entryId: number,
+    positionDto: UpdateEntryPositionDto,
+  ): Promise<WaitingListEntryResponseDto> {
     try {
       const entry = await this.prisma.waitingListEntry.update({
         where: { id: entryId },
@@ -224,7 +241,7 @@ export class WaitingListEntriesService {
    * @param entry - The Prisma WaitingListEntry object
    * @returns The mapped WaitingListEntryResponseDto
    */
-  private mapToResponseDto(entry: any): WaitingListEntryResponseDto {
+  private mapToResponseDto(entry: WaitingListEntry): WaitingListEntryResponseDto {
     return {
       id: entry.id,
       ownerName: entry.ownerName,
@@ -235,4 +252,4 @@ export class WaitingListEntriesService {
       status: entry.status,
     };
   }
-} 
+}

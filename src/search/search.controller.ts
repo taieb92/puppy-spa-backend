@@ -20,7 +20,8 @@ export class SearchController {
   @Get('entries')
   @ApiOperation({
     summary: 'Search entries across all waiting lists',
-    description: 'Searches for entries across all waiting lists based on the provided query. The search is performed on owner name, puppy name, and service required fields.',
+    description:
+      'Searches for entries across all waiting lists based on the provided query. The search is performed on owner name, puppy name, and service required fields.',
   })
   @ApiQuery({
     name: 'q',
@@ -41,4 +42,4 @@ export class SearchController {
   async searchEntries(@Query('q') query: string): Promise<WaitingListEntryResponseDto[]> {
     return this.searchService.searchEntries(query);
   }
-} 
+}

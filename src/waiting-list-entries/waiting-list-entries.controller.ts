@@ -1,76 +1,34 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Param,
-  Patch,
-  HttpCode,
-  HttpStatus,
-  Query,
-  Put,
-  Delete,
-} from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Delete, Put, Query } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
 import { WaitingListEntriesService } from './waiting-list-entries.service';
 import { CreateWaitingListEntryDto } from './dto/create-waiting-list-entry.dto';
 import { UpdateEntryStatusDto } from './dto/update-entry-status.dto';
 import { UpdateEntryPositionDto } from './dto/update-entry-position.dto';
 import { WaitingListEntryResponseDto } from './dto/waiting-list-entry-response.dto';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery, ApiBody } from '@nestjs/swagger';
-import { WaitingListEntry } from '@prisma/client';
 
 /**
  * Controller for managing waiting list entries
  * Handles creation, retrieval, and management of entries in waiting lists
  */
 @ApiTags('waiting-list-entries')
-@Controller('waiting-lists/:listId/entries')
+@Controller('waiting-list-entries')
 export class WaitingListEntriesController {
   constructor(private readonly waitingListEntriesService: WaitingListEntriesService) {}
 
   /**
    * Creates a new entry in a waiting list
-   * @param listId - The ID of the waiting list
-   * @param createEntryDto - The data for creating a new entry
+   * @param createWaitingListEntryDto - The data for creating a new entry
+   * @param desiredPosition - Optional position for the new entry
    * @returns The created entry
    */
   @Post()
   @ApiOperation({
-    summary: 'Create a new entry in a waiting list',
-    description: 'Creates a new entry in the specified waiting list. The entry can be added at a specific position or appended to the end of the list.',
-  })
-  @ApiParam({
-    name: 'listId',
-    description: 'The ID of the waiting list',
-    type: 'number',
-    example: 1,
-  })
-  @ApiBody({
-    type: CreateWaitingListEntryDto,
-    description: 'The data for creating a new entry',
-    examples: {
-      basic: {
-        value: {
-          ownerName: 'John Doe',
-          puppyName: 'Max',
-          serviceRequired: 'Grooming',
-          arrivalTime: '2024-03-20T10:00:00Z',
-        },
-      },
-      withPosition: {
-        value: {
-          ownerName: 'Jane Smith',
-          puppyName: 'Bella',
-          serviceRequired: 'Bath',
-          arrivalTime: '2024-03-20T11:00:00Z',
-          position: 2,
-        },
-      },
-    },
+    summary: 'Create a new waiting list entry',
+    description: 'Creates a new entry in the specified waiting list.',
   })
   @ApiResponse({
     status: 201,
-    description: 'The entry was successfully created',
+    description: 'The entry has been successfully created.',
     type: WaitingListEntryResponseDto,
   })
   @ApiResponse({
@@ -86,13 +44,13 @@ export class WaitingListEntriesController {
     description: 'Conflict - Invalid position or other conflict',
   })
   async createEntry(
-    @Param('listId') listId: number,
     @Body() createWaitingListEntryDto: CreateWaitingListEntryDto,
+    @Query('position') desiredPosition?: number,
   ): Promise<WaitingListEntryResponseDto> {
     return this.waitingListEntriesService.createEntry(
-      listId,
+      createWaitingListEntryDto.waitingListId,
       createWaitingListEntryDto,
-      createWaitingListEntryDto.position,
+      desiredPosition,
     );
   }
 
@@ -102,78 +60,55 @@ export class WaitingListEntriesController {
    * @param status - Optional status filter
    * @returns The list of entries
    */
-  @Get()
+  @Get('list/:listId')
   @ApiOperation({
-    summary: 'Get all entries in a waiting list',
-    description: 'Retrieves all entries in the specified waiting list, optionally filtered by status.',
+    summary: 'Get all entries for a specific waiting list',
+    description:
+      'Retrieves all entries in the specified waiting list, optionally filtered by status.',
   })
   @ApiParam({
     name: 'listId',
     description: 'The ID of the waiting list',
-    type: 'number',
-    example: 1,
   })
   @ApiQuery({
     name: 'status',
-    description: 'Filter entries by status',
     required: false,
-    type: 'string',
-    enum: ['WAITING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'],
-    example: 'WAITING',
+    description: 'Filter entries by status',
   })
   @ApiResponse({
     status: 200,
-    description: 'The list of entries was successfully retrieved',
+    description: 'Returns all entries for the specified waiting list.',
     type: [WaitingListEntryResponseDto],
   })
   @ApiResponse({
     status: 404,
     description: 'Not found - The waiting list does not exist',
   })
-  async getEntries(
-    @Param('listId') listId: number,
+  async getEntriesByListId(
+    @Param('listId') listId: string,
     @Query('status') status?: string,
   ): Promise<WaitingListEntryResponseDto[]> {
-    return this.waitingListEntriesService.getEntriesByListId(listId, status);
+    return this.waitingListEntriesService.getEntriesByListId(Number(listId), status);
   }
 
   /**
    * Updates the status of a waiting list entry
-   * @param entryId - The ID of the entry to update
+   * @param id - The ID of the entry to update
    * @param statusDto - The new status
    * @returns The updated entry
    */
-  @Put(':entryId/status')
+  @Put(':id/status')
   @ApiOperation({
-    summary: 'Update the status of an entry',
+    summary: 'Update the status of a waiting list entry',
     description: 'Updates the status of a specific entry in the waiting list.',
   })
   @ApiParam({
-    name: 'listId',
-    description: 'The ID of the waiting list',
-    type: 'number',
-    example: 1,
-  })
-  @ApiParam({
-    name: 'entryId',
+    name: 'id',
     description: 'The ID of the entry to update',
-    type: 'number',
-    example: 1,
-  })
-  @ApiBody({
-    type: UpdateEntryStatusDto,
-    description: 'The new status for the entry',
-    examples: {
-      updateStatus: {
-        value: {
-          status: 'IN_PROGRESS',
-        },
-      },
-    },
   })
   @ApiResponse({
     status: 200,
-    description: 'The entry status was successfully updated',
+    description: 'The entry status has been successfully updated.',
     type: WaitingListEntryResponseDto,
   })
   @ApiResponse({
@@ -181,50 +116,31 @@ export class WaitingListEntriesController {
     description: 'Not found - The entry does not exist',
   })
   async updateEntryStatus(
-    @Param('listId') listId: number,
-    @Param('entryId') entryId: number,
-    @Body() updateEntryStatusDto: UpdateEntryStatusDto,
+    @Param('id') id: string,
+    @Body() statusDto: UpdateEntryStatusDto,
   ): Promise<WaitingListEntryResponseDto> {
-    return this.waitingListEntriesService.updateEntryStatus(entryId, updateEntryStatusDto);
+    return this.waitingListEntriesService.updateEntryStatus(Number(id), statusDto);
   }
 
   /**
    * Updates the position of a waiting list entry
-   * @param entryId - The ID of the entry to update
+   * @param id - The ID of the entry to update
    * @param positionDto - The new position
    * @returns The updated entry
    */
-  @Put(':entryId/position')
+  @Put(':id/position')
   @ApiOperation({
-    summary: 'Update the position of an entry',
-    description: 'Updates the position of a specific entry in the waiting list. This will automatically adjust the positions of other entries.',
+    summary: 'Update the position of a waiting list entry',
+    description:
+      'Updates the position of a specific entry in the waiting list. This will automatically adjust the positions of other entries.',
   })
   @ApiParam({
-    name: 'listId',
-    description: 'The ID of the waiting list',
-    type: 'number',
-    example: 1,
-  })
-  @ApiParam({
-    name: 'entryId',
+    name: 'id',
     description: 'The ID of the entry to update',
-    type: 'number',
-    example: 1,
-  })
-  @ApiBody({
-    type: UpdateEntryPositionDto,
-    description: 'The new position for the entry',
-    examples: {
-      updatePosition: {
-        value: {
-          position: 3,
-        },
-      },
-    },
   })
   @ApiResponse({
     status: 200,
-    description: 'The entry position was successfully updated',
+    description: 'The entry position has been successfully updated.',
     type: WaitingListEntryResponseDto,
   })
   @ApiResponse({
@@ -236,48 +152,37 @@ export class WaitingListEntriesController {
     description: 'Conflict - Invalid position',
   })
   async updateEntryPosition(
-    @Param('listId') listId: number,
-    @Param('entryId') entryId: number,
-    @Body() updateEntryPositionDto: UpdateEntryPositionDto,
+    @Param('id') id: string,
+    @Body() positionDto: UpdateEntryPositionDto,
   ): Promise<WaitingListEntryResponseDto> {
-    return this.waitingListEntriesService.updateEntryPosition(entryId, updateEntryPositionDto);
+    return this.waitingListEntriesService.updateEntryPosition(Number(id), positionDto);
   }
 
   /**
    * Removes an entry
-   * @param entryId - The ID of the entry to remove
+   * @param id - The ID of the entry to remove
    * @returns The removed entry
    */
-  @Delete(':entryId')
+  @Delete(':id')
   @ApiOperation({
-    summary: 'Remove an entry from the waiting list',
-    description: 'Removes a specific entry from the waiting list. This will automatically adjust the positions of remaining entries.',
+    summary: 'Remove a waiting list entry',
+    description:
+      'Removes a specific entry from the waiting list. This will automatically adjust the positions of remaining entries.',
   })
   @ApiParam({
-    name: 'listId',
-    description: 'The ID of the waiting list',
-    type: 'number',
-    example: 1,
-  })
-  @ApiParam({
-    name: 'entryId',
+    name: 'id',
     description: 'The ID of the entry to remove',
-    type: 'number',
-    example: 1,
   })
   @ApiResponse({
     status: 200,
-    description: 'The entry was successfully removed',
+    description: 'The entry has been successfully removed.',
     type: WaitingListEntryResponseDto,
   })
   @ApiResponse({
     status: 404,
     description: 'Not found - The entry does not exist',
   })
-  async removeEntry(
-    @Param('listId') listId: number,
-    @Param('entryId') entryId: number,
-  ): Promise<WaitingListEntryResponseDto> {
-    return this.waitingListEntriesService.remove(entryId);
+  async remove(@Param('id') id: string): Promise<WaitingListEntryResponseDto> {
+    return this.waitingListEntriesService.remove(Number(id));
   }
-} 
+}

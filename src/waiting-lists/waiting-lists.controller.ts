@@ -1,7 +1,10 @@
 import { Controller, Get, Post, Body, Param, Query } from '@nestjs/common';
 import { WaitingListsService } from './waiting-lists.service';
 import { CreateWaitingListDto } from './dto/create-waiting-list.dto';
-import { WaitingListResponseDto, MonthlyWaitingListsResponseDto } from './dto/waiting-list-response.dto';
+import {
+  WaitingListResponseDto,
+  MonthlyWaitingListsResponseDto,
+} from './dto/waiting-list-response.dto';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery, ApiBody } from '@nestjs/swagger';
 
 /**
@@ -21,7 +24,8 @@ export class WaitingListsController {
   @Post()
   @ApiOperation({
     summary: 'Create a new waiting list',
-    description: 'Creates a new waiting list for a specific date. The date must be in YYYY-MM-DD format.',
+    description:
+      'Creates a new waiting list for a specific date. The date must be in YYYY-MM-DD format.',
   })
   @ApiBody({
     type: CreateWaitingListDto,
@@ -61,7 +65,8 @@ export class WaitingListsController {
   @Get()
   @ApiOperation({
     summary: 'Get waiting lists by month',
-    description: 'Retrieves all waiting lists for a specific month. The month must be in YYYY-MM format.',
+    description:
+      'Retrieves all waiting lists for a specific month. The month must be in YYYY-MM format.',
   })
   @ApiQuery({
     name: 'month',
@@ -79,9 +84,7 @@ export class WaitingListsController {
     status: 400,
     description: 'Bad request - Invalid month format',
   })
-  async getAllWaitingLists(
-    @Query('month') month: string,
-  ): Promise<MonthlyWaitingListsResponseDto> {
+  async getAllWaitingLists(@Query('month') month: string): Promise<MonthlyWaitingListsResponseDto> {
     return this.waitingListsService.getWaitingListsByMonth(month);
   }
 
@@ -93,7 +96,8 @@ export class WaitingListsController {
   @Get('date/:date')
   @ApiOperation({
     summary: 'Get a waiting list by date',
-    description: 'Retrieves a specific waiting list by its date. The date must be in YYYY-MM-DD format.',
+    description:
+      'Retrieves a specific waiting list by its date. The date must be in YYYY-MM-DD format.',
   })
   @ApiParam({
     name: 'date',
@@ -114,9 +118,7 @@ export class WaitingListsController {
     status: 404,
     description: 'Not found - No waiting list exists for this date',
   })
-  async getWaitingListByDate(
-    @Param('date') date: string,
-  ): Promise<WaitingListResponseDto> {
+  async getWaitingListByDate(@Param('date') date: string): Promise<WaitingListResponseDto> {
     return this.waitingListsService.getWaitingListByDate(date);
   }
-} 
+}

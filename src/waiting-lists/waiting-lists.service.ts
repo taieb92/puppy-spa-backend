@@ -1,46 +1,59 @@
-import { Injectable, NotFoundException, ConflictException, InternalServerErrorException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateWaitingListDto } from './dto/create-waiting-list.dto';
-import { WaitingListResponseDto, MonthlyWaitingListsResponseDto } from './dto/waiting-list-response.dto';
-import { Prisma, WaitingList } from '@prisma/client';
+import {
+  WaitingListResponseDto,
+  MonthlyWaitingListsResponseDto,
+} from './dto/waiting-list-response.dto';
+import { WaitingList } from '@prisma/client';
 
 @Injectable()
 export class WaitingListsService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * Creates a new waiting list
+   * Creates a new waiting list for a specific date
    * @param createWaitingListDto - The data for creating a new waiting list
    * @returns The created waiting list
-   * @throws ConflictException if a waiting list already exists for the given date
    * @throws BadRequestException if the date is invalid
+   * @throws ConflictException if a waiting list already exists for the date
    * @throws InternalServerErrorException if the creation fails
    */
-  async createWaitingList(createWaitingListDto: CreateWaitingListDto): Promise<WaitingListResponseDto> {
+  async createWaitingList(
+    createWaitingListDto: CreateWaitingListDto,
+  ): Promise<WaitingListResponseDto> {
     try {
+      // Validate date format
       const date = new Date(createWaitingListDto.date);
       if (isNaN(date.getTime())) {
-        throw new BadRequestException('Invalid date format');
+        throw new BadRequestException('Invalid date format. Please use YYYY-MM-DD format');
+      }
+
+      // Check if a waiting list already exists for this date
+      const existingList = await this.prisma.waitingList.findUnique({
+        where: { date: createWaitingListDto.date },
+      });
+
+      if (existingList) {
+        throw new ConflictException(
+          `A waiting list already exists for date ${createWaitingListDto.date}`,
+        );
       }
 
       const waitingList = await this.prisma.waitingList.create({
-        data: {
-          date,
-        },
-        include: {
-          entries: true,
-        },
+        data: createWaitingListDto,
       });
 
-      return this.mapToWaitingListResponseDto(waitingList);
+      return this.mapToResponseDto(waitingList);
     } catch (error) {
-      if (error instanceof BadRequestException) {
+      if (error instanceof BadRequestException || error instanceof ConflictException) {
         throw error;
-      }
-      if (error instanceof Prisma.PrismaClientKnownRequestError) {
-        if (error.code === 'P2002') {
-          throw new ConflictException('A waiting list already exists for this date');
-        }
       }
       console.error('Error creating waiting list:', error);
       throw new InternalServerErrorException('Failed to create waiting list');
@@ -50,19 +63,27 @@ export class WaitingListsService {
   /**
    * Gets all waiting lists for a specific month
    * @param month - The month in YYYY-MM format
-   * @returns List of waiting lists for the month
+   * @returns The monthly waiting lists response
    * @throws BadRequestException if the month format is invalid
    * @throws InternalServerErrorException if the query fails
    */
   async getWaitingListsByMonth(month: string): Promise<MonthlyWaitingListsResponseDto> {
     try {
+      // Validate month format
       const [year, monthNum] = month.split('-').map(Number);
-      if (isNaN(year) || isNaN(monthNum) || monthNum < 1 || monthNum > 12) {
-        throw new BadRequestException('Invalid month format. Use YYYY-MM');
+      if (
+        isNaN(year) ||
+        isNaN(monthNum) ||
+        monthNum < 1 ||
+        monthNum > 12 ||
+        !/^\d{4}-\d{2}$/.test(month)
+      ) {
+        throw new BadRequestException('Invalid month format. Please use YYYY-MM format');
       }
 
-      const startDate = new Date(year, monthNum - 1, 1);
-      const endDate = new Date(year, monthNum, 0);
+      // Calculate start and end dates for the month
+      const startDate = new Date(year, monthNum - 1, 1).toISOString().split('T')[0];
+      const endDate = new Date(year, monthNum, 0).toISOString().split('T')[0];
 
       const waitingLists = await this.prisma.waitingList.findMany({
         where: {
@@ -71,60 +92,55 @@ export class WaitingListsService {
             lte: endDate,
           },
         },
-        include: {
-          entries: true,
-        },
         orderBy: {
           date: 'asc',
         },
       });
 
       return {
-        waitingLists: waitingLists.map(this.mapToWaitingListResponseDto),
         month,
+        waitingLists: waitingLists.map((list) => this.mapToResponseDto(list)),
       };
     } catch (error) {
       if (error instanceof BadRequestException) {
         throw error;
       }
       console.error('Error fetching waiting lists by month:', error);
-      throw new InternalServerErrorException('Failed to fetch waiting lists');
+      throw new InternalServerErrorException('Failed to fetch waiting lists by month');
     }
   }
 
   /**
    * Gets a waiting list by date
-   * @param date - The date string in YYYY-MM-DD format
-   * @returns The waiting list for the given date
-   * @throws NotFoundException if no waiting list exists for the given date
+   * @param date - The date in YYYY-MM-DD format
+   * @returns The waiting list for the specified date
    * @throws BadRequestException if the date format is invalid
+   * @throws NotFoundException if no waiting list exists for the date
    * @throws InternalServerErrorException if the query fails
    */
   async getWaitingListByDate(date: string): Promise<WaitingListResponseDto> {
     try {
+      // Validate date format
       const parsedDate = new Date(date);
-      if (isNaN(parsedDate.getTime())) {
-        throw new BadRequestException('Invalid date format. Use YYYY-MM-DD');
+      if (isNaN(parsedDate.getTime()) || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        throw new BadRequestException('Invalid date format. Please use YYYY-MM-DD format');
       }
 
       const waitingList = await this.prisma.waitingList.findUnique({
-        where: { date: parsedDate },
-        include: {
-          entries: true,
-        },
+        where: { date },
       });
 
       if (!waitingList) {
-        throw new NotFoundException(`Waiting list for date ${date} not found`);
+        throw new NotFoundException(`No waiting list found for date ${date}`);
       }
 
-      return this.mapToWaitingListResponseDto(waitingList);
+      return this.mapToResponseDto(waitingList);
     } catch (error) {
-      if (error instanceof NotFoundException || error instanceof BadRequestException) {
+      if (error instanceof BadRequestException || error instanceof NotFoundException) {
         throw error;
       }
       console.error('Error fetching waiting list by date:', error);
-      throw new InternalServerErrorException('Failed to fetch waiting list');
+      throw new InternalServerErrorException('Failed to fetch waiting list by date');
     }
   }
 
@@ -133,19 +149,13 @@ export class WaitingListsService {
    * @param waitingList - The Prisma WaitingList object
    * @returns The mapped WaitingListResponseDto
    */
-  private mapToWaitingListResponseDto(waitingList: WaitingList & { entries: any[] }): WaitingListResponseDto {
+  private mapToResponseDto(waitingList: WaitingList): WaitingListResponseDto {
+    const { id, date } = waitingList;
     return {
-      id: waitingList.id,
-      date: waitingList.date,
-      entries: waitingList.entries.map(entry => ({
-        id: entry.id,
-        ownerName: entry.ownerName,
-        puppyName: entry.puppyName,
-        serviceRequired: entry.serviceRequired,
-        arrivalTime: entry.arrivalTime,
-        position: entry.position,
-        status: entry.status,
-      })),
+      id,
+      date: date.toISOString().split('T')[0],
+      maxCapacity: 0,
+      currentCapacity: 0,
     };
   }
-} 
+}

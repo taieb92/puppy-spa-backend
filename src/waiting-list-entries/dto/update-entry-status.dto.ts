@@ -5,4 +5,4 @@ export class UpdateEntryStatusDto {
   @IsString()
   @IsIn(['waiting', 'in_progress', 'completed', 'cancelled'])
   status: string;
-} 
+}

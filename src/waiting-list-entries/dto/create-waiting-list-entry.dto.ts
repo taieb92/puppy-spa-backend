@@ -1,7 +1,15 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsOptional, IsString, IsDateString, IsNumber, Min } from 'class-validator';
+import { IsOptional, IsString, IsDateString, IsNumber, Min, IsInt } from 'class-validator';
 
 export class CreateWaitingListEntryDto {
+  @ApiProperty({
+    description: 'The ID of the waiting list this entry belongs to',
+    example: 1,
+  })
+  @IsInt()
+  @Min(1)
+  waitingListId: number;
+
   @ApiProperty({
     description: 'The name of the puppy owner',
     example: 'John Doe',
@@ -43,4 +51,4 @@ export class CreateWaitingListEntryDto {
   @IsNumber()
   @Min(1)
   position?: number;
-} 
+}

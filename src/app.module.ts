@@ -7,12 +7,7 @@ import { WaitingListEntriesModule } from './waiting-list-entries/waiting-list-en
 import { SearchModule } from './search/search.module';
 
 @Module({
-  imports: [
-    PrismaModule,
-    WaitingListsModule,
-    WaitingListEntriesModule,
-    SearchModule,
-  ],
+  imports: [PrismaModule, WaitingListsModule, WaitingListEntriesModule, SearchModule],
   controllers: [AppController],
   providers: [AppService],
 })
