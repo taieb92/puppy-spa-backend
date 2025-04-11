@@ -1,8 +1,8 @@
-import { Controller, Get, Post, Body, Param, Query, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Query } from '@nestjs/common';
 import { WaitingListsService } from './waiting-lists.service';
 import { CreateWaitingListDto } from './dto/create-waiting-list.dto';
-import { PaginationDto } from '../common/dto/pagination.dto';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBody } from '@nestjs/swagger';
+import { WaitingListResponseDto, MonthlyWaitingListsResponseDto } from './dto/waiting-list-response.dto';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery, ApiBody } from '@nestjs/swagger';
 
 /**
  * Controller for managing waiting lists
@@ -19,26 +19,70 @@ export class WaitingListsController {
    * @returns The created waiting list
    */
   @Post()
-  @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Create a new waiting list' })
-  @ApiBody({ type: CreateWaitingListDto })
-  @ApiResponse({ status: HttpStatus.CREATED, description: 'Waiting list created successfully' })
-  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Invalid input data' })
-  @ApiResponse({ status: HttpStatus.CONFLICT, description: 'Waiting list already exists for this date' })
-  async createWaitingList(@Body() createWaitingListDto: CreateWaitingListDto) {
+  @ApiOperation({
+    summary: 'Create a new waiting list',
+    description: 'Creates a new waiting list for a specific date. The date must be in YYYY-MM-DD format.',
+  })
+  @ApiBody({
+    type: CreateWaitingListDto,
+    description: 'The data for creating a new waiting list',
+    examples: {
+      basic: {
+        value: {
+          date: '2024-03-20',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'The waiting list was successfully created',
+    type: WaitingListResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request - Invalid date format',
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'Conflict - A waiting list already exists for this date',
+  })
+  async createWaitingList(
+    @Body() createWaitingListDto: CreateWaitingListDto,
+  ): Promise<WaitingListResponseDto> {
     return this.waitingListsService.createWaitingList(createWaitingListDto);
   }
 
   /**
-   * Retrieves all waiting lists with pagination
-   * @param paginationDto - Pagination parameters (page and limit)
-   * @returns A paginated list of waiting lists
+   * Retrieves waiting lists by month
+   * @param month - The month in YYYY-MM format
+   * @returns A list of waiting lists for the specified month
    */
   @Get()
-  @ApiOperation({ summary: 'Get all waiting lists' })
-  @ApiResponse({ status: HttpStatus.OK, description: 'Waiting lists retrieved successfully' })
-  async getAllWaitingLists(@Query() paginationDto: PaginationDto) {
-    return this.waitingListsService.getAllWaitingLists(paginationDto);
+  @ApiOperation({
+    summary: 'Get waiting lists by month',
+    description: 'Retrieves all waiting lists for a specific month. The month must be in YYYY-MM format.',
+  })
+  @ApiQuery({
+    name: 'month',
+    description: 'The month to retrieve waiting lists for (YYYY-MM format)',
+    required: true,
+    type: 'string',
+    example: '2024-03',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'The waiting lists for the specified month were successfully retrieved',
+    type: MonthlyWaitingListsResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request - Invalid month format',
+  })
+  async getAllWaitingLists(
+    @Query('month') month: string,
+  ): Promise<MonthlyWaitingListsResponseDto> {
+    return this.waitingListsService.getWaitingListsByMonth(month);
   }
 
   /**
@@ -47,11 +91,32 @@ export class WaitingListsController {
    * @returns The waiting list for the specified date
    */
   @Get('date/:date')
-  @ApiOperation({ summary: 'Get a waiting list by date' })
-  @ApiParam({ name: 'date', description: 'The date of the waiting list (YYYY-MM-DD)' })
-  @ApiResponse({ status: HttpStatus.OK, description: 'Waiting list retrieved successfully' })
-  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Waiting list not found for this date' })
-  async getWaitingListByDate(@Param('date') date: string) {
-    return this.waitingListsService.getWaitingListByDate(new Date(date));
+  @ApiOperation({
+    summary: 'Get a waiting list by date',
+    description: 'Retrieves a specific waiting list by its date. The date must be in YYYY-MM-DD format.',
+  })
+  @ApiParam({
+    name: 'date',
+    description: 'The date of the waiting list to retrieve (YYYY-MM-DD format)',
+    type: 'string',
+    example: '2024-03-20',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'The waiting list was successfully retrieved',
+    type: WaitingListResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request - Invalid date format',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Not found - No waiting list exists for this date',
+  })
+  async getWaitingListByDate(
+    @Param('date') date: string,
+  ): Promise<WaitingListResponseDto> {
+    return this.waitingListsService.getWaitingListByDate(date);
   }
 } 

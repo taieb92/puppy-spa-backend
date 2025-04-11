@@ -1,5 +1,6 @@
-import { Controller, Get, Query, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Query } from '@nestjs/common';
 import { SearchService } from './search.service';
+import { WaitingListEntryResponseDto } from '../waiting-list-entries/dto/waiting-list-entry-response.dto';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 
 /**
@@ -16,12 +17,28 @@ export class SearchController {
    * @param query - The search query string
    * @returns Matching entries with their associated waiting lists
    */
-  @Get()
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Search entries across all waiting lists' })
-  @ApiQuery({ name: 'query', required: true, description: 'Search query string' })
-  @ApiResponse({ status: HttpStatus.OK, description: 'Search results retrieved successfully' })
-  async search(@Query('query') query: string) {
+  @Get('entries')
+  @ApiOperation({
+    summary: 'Search entries across all waiting lists',
+    description: 'Searches for entries across all waiting lists based on the provided query. The search is performed on owner name, puppy name, and service required fields.',
+  })
+  @ApiQuery({
+    name: 'q',
+    description: 'The search query',
+    required: true,
+    type: 'string',
+    example: 'Max',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'The search results were successfully retrieved',
+    type: [WaitingListEntryResponseDto],
+  })
+  @ApiResponse({
+    status: 500,
+    description: 'Internal server error - Failed to perform search',
+  })
+  async searchEntries(@Query('q') query: string): Promise<WaitingListEntryResponseDto[]> {
     return this.searchService.searchEntries(query);
   }
 } 

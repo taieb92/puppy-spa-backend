@@ -1,8 +1,9 @@
-import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateWaitingListEntryDto } from './dto/create-waiting-list-entry.dto';
 import { UpdateEntryStatusDto } from './dto/update-entry-status.dto';
 import { UpdateEntryPositionDto } from './dto/update-entry-position.dto';
+import { WaitingListEntryResponseDto } from './dto/waiting-list-entry-response.dto';
 import { Prisma } from '@prisma/client';
 
 @Injectable()
@@ -17,18 +18,20 @@ export class WaitingListEntriesService {
    * @returns The created entry
    * @throws NotFoundException if the waiting list doesn't exist
    * @throws BadRequestException if neither ownerName nor puppyName is provided
+   * @throws ConflictException if the position is invalid
+   * @throws InternalServerErrorException if the creation fails
    */
   async createEntry(
     listId: number,
     entryData: Omit<CreateWaitingListEntryDto, 'waitingListId'>,
     desiredPosition?: number,
-  ) {
-    // Validate that at least one name is provided
-    if (!entryData.ownerName && !entryData.puppyName) {
-      throw new BadRequestException('Either ownerName or puppyName must be provided');
-    }
-
+  ): Promise<WaitingListEntryResponseDto> {
     try {
+      // Validate that at least one name is provided
+      if (!entryData.ownerName && !entryData.puppyName) {
+        throw new BadRequestException('Either ownerName or puppyName must be provided');
+      }
+
       return await this.prisma.$transaction(async (tx) => {
         // Verify the waiting list exists
         const waitingList = await tx.waitingList.findUnique({
@@ -49,16 +52,14 @@ export class WaitingListEntriesService {
 
         // If no desired position is provided, append to the end
         if (!desiredPosition) {
-          return tx.waitingListEntry.create({
+          const entry = await tx.waitingListEntry.create({
             data: {
               ...entryData,
               waitingListId: listId,
               position: maxPosition + 1,
             },
-            include: {
-              waitingList: true,
-            },
           });
+          return this.mapToResponseDto(entry);
         }
 
         // Validate desired position
@@ -84,16 +85,14 @@ export class WaitingListEntriesService {
         });
 
         // Create the new entry at the desired position
-        return tx.waitingListEntry.create({
+        const entry = await tx.waitingListEntry.create({
           data: {
             ...entryData,
             waitingListId: listId,
             position: desiredPosition,
           },
-          include: {
-            waitingList: true,
-          },
         });
+        return this.mapToResponseDto(entry);
       });
     } catch (error) {
       if (error instanceof NotFoundException || 
@@ -101,12 +100,8 @@ export class WaitingListEntriesService {
           error instanceof BadRequestException) {
         throw error;
       }
-      if (error instanceof Prisma.PrismaClientKnownRequestError) {
-        if (error.code === 'P2003') {
-          throw new NotFoundException(`Waiting list with ID ${listId} not found`);
-        }
-      }
-      throw error;
+      console.error('Error creating entry:', error);
+      throw new InternalServerErrorException('Failed to create entry');
     }
   }
 
@@ -116,28 +111,36 @@ export class WaitingListEntriesService {
    * @param status - Optional status filter
    * @returns The list of entries
    * @throws NotFoundException if the waiting list doesn't exist
+   * @throws InternalServerErrorException if the query fails
    */
-  async getEntriesByListId(listId: number, status?: string) {
-    const waitingList = await this.prisma.waitingList.findUnique({
-      where: { id: listId },
-    });
+  async getEntriesByListId(listId: number, status?: string): Promise<WaitingListEntryResponseDto[]> {
+    try {
+      const waitingList = await this.prisma.waitingList.findUnique({
+        where: { id: listId },
+      });
 
-    if (!waitingList) {
-      throw new NotFoundException(`Waiting list with ID ${listId} not found`);
+      if (!waitingList) {
+        throw new NotFoundException(`Waiting list with ID ${listId} not found`);
+      }
+
+      const entries = await this.prisma.waitingListEntry.findMany({
+        where: {
+          waitingListId: listId,
+          ...(status && { status }),
+        },
+        orderBy: {
+          position: 'asc',
+        },
+      });
+
+      return entries.map(this.mapToResponseDto);
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      console.error('Error fetching entries:', error);
+      throw new InternalServerErrorException('Failed to fetch entries');
     }
-
-    return this.prisma.waitingListEntry.findMany({
-      where: {
-        waitingListId: listId,
-        ...(status && { status }),
-      },
-      orderBy: {
-        position: 'asc',
-      },
-      include: {
-        waitingList: true,
-      },
-    });
   }
 
   /**
@@ -146,23 +149,23 @@ export class WaitingListEntriesService {
    * @param statusDto - The new status
    * @returns The updated entry
    * @throws NotFoundException if the entry doesn't exist
+   * @throws InternalServerErrorException if the update fails
    */
-  async updateEntryStatus(entryId: number, statusDto: UpdateEntryStatusDto) {
+  async updateEntryStatus(entryId: number, statusDto: UpdateEntryStatusDto): Promise<WaitingListEntryResponseDto> {
     try {
-      return await this.prisma.waitingListEntry.update({
+      const entry = await this.prisma.waitingListEntry.update({
         where: { id: entryId },
         data: statusDto,
-        include: {
-          waitingList: true,
-        },
       });
+      return this.mapToResponseDto(entry);
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2025') {
           throw new NotFoundException(`Entry with ID ${entryId} not found`);
         }
       }
-      throw error;
+      console.error('Error updating entry status:', error);
+      throw new InternalServerErrorException('Failed to update entry status');
     }
   }
 
@@ -172,29 +175,64 @@ export class WaitingListEntriesService {
    * @param positionDto - The new position
    * @returns The updated entry
    * @throws NotFoundException if the entry doesn't exist
+   * @throws InternalServerErrorException if the update fails
    */
-  async updateEntryPosition(entryId: number, positionDto: UpdateEntryPositionDto) {
+  async updateEntryPosition(entryId: number, positionDto: UpdateEntryPositionDto): Promise<WaitingListEntryResponseDto> {
     try {
-      return await this.prisma.waitingListEntry.update({
+      const entry = await this.prisma.waitingListEntry.update({
         where: { id: entryId },
         data: positionDto,
-        include: {
-          waitingList: true,
-        },
       });
+      return this.mapToResponseDto(entry);
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2025') {
           throw new NotFoundException(`Entry with ID ${entryId} not found`);
         }
       }
-      throw error;
+      console.error('Error updating entry position:', error);
+      throw new InternalServerErrorException('Failed to update entry position');
     }
   }
 
-  async remove(id: number) {
-    return this.prisma.waitingListEntry.delete({
-      where: { id },
-    });
+  /**
+   * Removes a waiting list entry
+   * @param id - The ID of the entry to remove
+   * @returns The removed entry
+   * @throws NotFoundException if the entry doesn't exist
+   * @throws InternalServerErrorException if the deletion fails
+   */
+  async remove(id: number): Promise<WaitingListEntryResponseDto> {
+    try {
+      const entry = await this.prisma.waitingListEntry.delete({
+        where: { id },
+      });
+      return this.mapToResponseDto(entry);
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2025') {
+          throw new NotFoundException(`Entry with ID ${id} not found`);
+        }
+      }
+      console.error('Error removing entry:', error);
+      throw new InternalServerErrorException('Failed to remove entry');
+    }
+  }
+
+  /**
+   * Maps a Prisma WaitingListEntry to WaitingListEntryResponseDto
+   * @param entry - The Prisma WaitingListEntry object
+   * @returns The mapped WaitingListEntryResponseDto
+   */
+  private mapToResponseDto(entry: any): WaitingListEntryResponseDto {
+    return {
+      id: entry.id,
+      ownerName: entry.ownerName,
+      puppyName: entry.puppyName,
+      serviceRequired: entry.serviceRequired,
+      arrivalTime: entry.arrivalTime,
+      position: entry.position,
+      status: entry.status,
+    };
   }
 } 
