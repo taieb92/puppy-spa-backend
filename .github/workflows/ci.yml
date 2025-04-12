@@ -33,7 +33,7 @@ jobs:
         run: npm run test
 
       - name: Build container image
-        run: docker build -t $(echo $REGISTRY)/$(echo $IMAGE_NAME):$(echo $GITHUB_SHA | head -c7) . --build-arg DATABASE_URL=${{ secrets.DATABASE_URL }}
+        run: docker build -t $(echo $REGISTRY)/$(echo $IMAGE_NAME):$(echo $GITHUB_SHA | head -c7) .
 
       - name: Install doctl
         uses: digitalocean/action-doctl@v2
@@ -72,6 +72,11 @@ jobs:
             docker run -d \
             -p 3000:3000 \
             -e DATABASE_URL=${{ secrets.DATABASE_URL }} \
+            -e MYSQL_HOST=${{ secrets.MYSQL_HOST }} \
+            -e MYSQL_USER=${{ secrets.MYSQL_USER }} \
+            -e MYSQL_PASSWORD=${{ secrets.MYSQL_PASSWORD }} \
+            -e MYSQL_DATABASE=${{ secrets.MYSQL_DATABASE }} \
+            -e MYSQL_PORT=${{ secrets.MYSQL_PORT }} \
             --restart on-failure:5 \
             --name $(echo $IMAGE_NAME) \
             $(echo $REGISTRY)/$(echo $IMAGE_NAME):$(echo $GITHUB_SHA | head -c7) 
