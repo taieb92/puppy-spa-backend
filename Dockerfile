@@ -1,36 +1,47 @@
-FROM node:lts-slim AS dist
+# Build stage
+FROM node:20-alpine AS builder
 
-# A wildcard is used to ensure both package.json AND package-lock.json are copied
+WORKDIR /app
+
+# Install dependencies first (better caching)
 COPY package*.json ./
-
-# Install app dependencies
 RUN npm ci
 
-# Build app
-COPY . ./
-RUN npm run format
+# Copy source code
+COPY . .
+
+# Build the application
 RUN npm run build
 
-FROM node:lts-slim AS node_modules
+# Production stage
+FROM node:20-alpine AS production
 
-# A wildcard is used to ensure both package.json AND package-lock.json are copied
-COPY package*.json ./
+WORKDIR /app
 
-# Install app dependencies
-RUN npm ci --only=production
+# Create a non-root user
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
-# The second FROM is the second stage in the multi-stage build and is used to the application.
-FROM node:lts-slim
-ARG PORT=3000
+# Copy only necessary files from builder
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/dist ./dist
 
-RUN mkdir -p /usr/src/app
-WORKDIR /usr/src/app
+# Set ownership to non-root user
+RUN chown -R appuser:appgroup /app
 
-# Copy from dist image only files and folders required to run the Nest app.
-COPY --from=dist /dist /usr/src/app/dist
-COPY --from=node_modules /node_modules /usr/src/app/node_modules
-COPY package*.json ./
+# Switch to non-root user
+USER appuser
 
-# Nest apps usually bind to port 3000, EXPOSE the same port for the Docker image
+# Set environment variables
+ENV NODE_ENV=production
+ENV PORT=3000
+
+# Expose the port
 EXPOSE $PORT
-CMD [ "npm", "run", "start:prod" ] 
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:$PORT/api/health || exit 1
+
+# Start the application
+CMD ["node", "dist/main.js"] 
