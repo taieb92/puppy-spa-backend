@@ -37,7 +37,7 @@ export class WaitingListsService {
 
       // Check if a waiting list already exists for this date
       const existingList = await this.prisma.waitingList.findUnique({
-        where: { date: createWaitingListDto.date },
+        where: { date: new Date(createWaitingListDto.date) },
       });
 
       if (existingList) {
@@ -47,7 +47,9 @@ export class WaitingListsService {
       }
 
       const waitingList = await this.prisma.waitingList.create({
-        data: createWaitingListDto,
+        data: {
+          date: new Date(createWaitingListDto.date),
+        },
       });
 
       return this.mapToResponseDto(waitingList);
@@ -82,8 +84,8 @@ export class WaitingListsService {
       }
 
       // Calculate start and end dates for the month
-      const startDate = new Date(year, monthNum - 1, 1).toISOString().split('T')[0];
-      const endDate = new Date(year, monthNum, 0).toISOString().split('T')[0];
+      const startDate = new Date(year, monthNum - 1, 1);
+      const endDate = new Date(year, monthNum, 0);
 
       const waitingLists = await this.prisma.waitingList.findMany({
         where: {
@@ -106,7 +108,9 @@ export class WaitingListsService {
         throw error;
       }
       console.error('Error fetching waiting lists by month:', error);
-      throw new InternalServerErrorException('Failed to fetch waiting lists by month');
+      throw new InternalServerErrorException(
+        `Failed to fetch waiting lists by month: ${error.message}`
+      );
     }
   }
 
@@ -126,8 +130,13 @@ export class WaitingListsService {
         throw new BadRequestException('Invalid date format. Please use YYYY-MM-DD format');
       }
 
+      // Convert to ISO string to ensure consistent format
+      const isoDate = parsedDate.toISOString().split('T')[0];
+
       const waitingList = await this.prisma.waitingList.findUnique({
-        where: { date },
+        where: { 
+          date: new Date(isoDate)
+        },
       });
 
       if (!waitingList) {
@@ -140,7 +149,9 @@ export class WaitingListsService {
         throw error;
       }
       console.error('Error fetching waiting list by date:', error);
-      throw new InternalServerErrorException('Failed to fetch waiting list by date');
+      throw new InternalServerErrorException(
+        `Failed to fetch waiting list by date: ${error.message}`
+      );
     }
   }
 
@@ -154,8 +165,6 @@ export class WaitingListsService {
     return {
       id,
       date: date.toISOString().split('T')[0],
-      maxCapacity: 0,
-      currentCapacity: 0,
     };
   }
 }

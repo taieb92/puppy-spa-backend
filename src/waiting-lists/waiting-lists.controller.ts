@@ -62,13 +62,13 @@ export class WaitingListsController {
    * @param month - The month in YYYY-MM format
    * @returns A list of waiting lists for the specified month
    */
-  @Get()
+  @Get('month/:month')
   @ApiOperation({
     summary: 'Get waiting lists by month',
     description:
       'Retrieves all waiting lists for a specific month. The month must be in YYYY-MM format.',
   })
-  @ApiQuery({
+  @ApiParam({
     name: 'month',
     description: 'The month to retrieve waiting lists for (YYYY-MM format)',
     required: true,
@@ -84,7 +84,7 @@ export class WaitingListsController {
     status: 400,
     description: 'Bad request - Invalid month format',
   })
-  async getAllWaitingLists(@Query('month') month: string): Promise<MonthlyWaitingListsResponseDto> {
+  async getAllWaitingLists(@Param('month') month: string): Promise<MonthlyWaitingListsResponseDto> {
     return this.waitingListsService.getWaitingListsByMonth(month);
   }
 

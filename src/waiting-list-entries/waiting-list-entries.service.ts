@@ -114,30 +114,40 @@ export class WaitingListEntriesService {
   }
 
   /**
-   * Gets all entries for a specific waiting list, optionally filtered by status
-   * @param listId - The ID of the waiting list
+   * Gets all entries, optionally filtered by listId, status and search query
+   * @param listId - Optional ID of the waiting list
    * @param status - Optional status filter
+   * @param searchQuery - Optional search query for owner or puppy name
    * @returns The list of entries
    * @throws NotFoundException if the waiting list doesn't exist
    * @throws InternalServerErrorException if the query fails
    */
   async getEntriesByListId(
-    listId: number,
+    listId?: number,
     status?: string,
+    searchQuery?: string,
   ): Promise<WaitingListEntryResponseDto[]> {
     try {
-      const waitingList = await this.prisma.waitingList.findUnique({
-        where: { id: listId },
-      });
+      if (listId) {
+        const waitingList = await this.prisma.waitingList.findUnique({
+          where: { id: listId },
+        });
 
-      if (!waitingList) {
-        throw new NotFoundException(`Waiting list with ID ${listId} not found`);
+        if (!waitingList) {
+          throw new NotFoundException(`Waiting list with ID ${listId} not found`);
+        }
       }
 
       const entries = await this.prisma.waitingListEntry.findMany({
         where: {
-          waitingListId: listId,
+          ...(listId && { waitingListId: listId }),
           ...(status && { status }),
+          ...(searchQuery && {
+            OR: [
+              { ownerName: { contains: searchQuery } },
+              { puppyName: { contains: searchQuery } },
+            ],
+          }),
         },
         orderBy: {
           position: 'asc',
@@ -150,7 +160,9 @@ export class WaitingListEntriesService {
         throw error;
       }
       console.error('Error fetching entries:', error);
-      throw new InternalServerErrorException('Failed to fetch entries');
+      throw new InternalServerErrorException(
+        `Failed to fetch entries: ${error.message}`
+      );
     }
   }
 

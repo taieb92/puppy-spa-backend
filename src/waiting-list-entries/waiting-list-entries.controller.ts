@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Delete, Put, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Delete, Put, Query, BadRequestException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
 import { WaitingListEntriesService } from './waiting-list-entries.service';
 import { CreateWaitingListEntryDto } from './dto/create-waiting-list-entry.dto';
@@ -10,8 +10,8 @@ import { WaitingListEntryResponseDto } from './dto/waiting-list-entry-response.d
  * Controller for managing waiting list entries
  * Handles creation, retrieval, and management of entries in waiting lists
  */
-@ApiTags('waiting-list-entries')
-@Controller('waiting-list-entries')
+@ApiTags('entries')
+@Controller('entries')
 export class WaitingListEntriesController {
   constructor(private readonly waitingListEntriesService: WaitingListEntriesService) {}
 
@@ -55,20 +55,27 @@ export class WaitingListEntriesController {
   }
 
   /**
-   * Gets all entries for a specific waiting list
-   * @param listId - The ID of the waiting list
+   * Gets all entries with optional listId, search query and status filter
+   * @param listId - Optional ID of the waiting list
+   * @param q - Optional search query for owner or puppy name
    * @param status - Optional status filter
    * @returns The list of entries
    */
-  @Get('list/:listId')
+  @Get('list')
   @ApiOperation({
-    summary: 'Get all entries for a specific waiting list',
+    summary: 'Get all entries with optional filters',
     description:
-      'Retrieves all entries in the specified waiting list, optionally filtered by status.',
+      'Retrieves all entries, optionally filtered by list, status and search query.',
   })
-  @ApiParam({
+  @ApiQuery({
     name: 'listId',
-    description: 'The ID of the waiting list',
+    description: 'Optional ID of the waiting list',
+    required: false,
+  })
+  @ApiQuery({
+    name: 'q',
+    required: false,
+    description: 'Search query for owner or puppy name',
   })
   @ApiQuery({
     name: 'status',
@@ -77,7 +84,7 @@ export class WaitingListEntriesController {
   })
   @ApiResponse({
     status: 200,
-    description: 'Returns all entries for the specified waiting list.',
+    description: 'Returns all matching entries.',
     type: [WaitingListEntryResponseDto],
   })
   @ApiResponse({
@@ -85,10 +92,15 @@ export class WaitingListEntriesController {
     description: 'Not found - The waiting list does not exist',
   })
   async getEntriesByListId(
-    @Param('listId') listId: string,
+    @Query('listId') listId?: string,
+    @Query('q') searchQuery?: string,
     @Query('status') status?: string,
   ): Promise<WaitingListEntryResponseDto[]> {
-    return this.waitingListEntriesService.getEntriesByListId(Number(listId), status);
+    return this.waitingListEntriesService.getEntriesByListId(
+      listId ? Number(listId) : undefined,
+      status,
+      searchQuery,
+    );
   }
 
   /**
