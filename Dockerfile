@@ -3,53 +3,47 @@ FROM node:20-slim AS builder
 
 WORKDIR /app
 
-# Install dependencies first (better caching)
+# Install dependencies
 COPY package*.json ./
 RUN npm ci
 
-# Copy source code
+# Copy all source code
 COPY . .
 
-# Generate Prisma Client
+# Generate Prisma client
 RUN npx prisma generate
 
 # Build the application
 RUN npm run build
 
 # Production stage
-FROM node:20-alpine AS production
+FROM node:20-slim AS production
 
 WORKDIR /app
 
-# Add OpenSSL 1.1 to support Prisma binary
-RUN apk add --no-cache openssl1.1-compat
+# Install curl and openssl (optional but useful)
+RUN apt update && apt install -y curl openssl && rm -rf /var/lib/apt/lists/*
 
-# Create a non-root user
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+# Create non-root user
+RUN useradd -m -s /bin/bash appuser
 
-# Copy only necessary files from builder
-COPY --from=builder /app/package*.json ./
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/.prisma ./node_modules/.prisma
+# Copy built app from builder
+COPY --from=builder /app /app
 
-# Set ownership to non-root user
-RUN chown -R appuser:appgroup /app
+# Set permissions
+RUN chown -R appuser /app
 
 # Switch to non-root user
 USER appuser
 
-# Set environment variables
+# Set environment
 ENV NODE_ENV=production
 ENV PORT=3000
 
-# Expose the port
 EXPOSE $PORT
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:$PORT/api/health || exit 1
 
-# Start the application
 CMD ["node", "dist/main.js"]
