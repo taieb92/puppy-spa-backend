@@ -10,6 +10,9 @@ RUN npm ci
 # Copy source code
 COPY . .
 
+# Generate Prisma Client
+RUN npx prisma generate
+
 # Build the application
 RUN npm run build
 
@@ -18,6 +21,9 @@ FROM node:20-alpine AS production
 
 WORKDIR /app
 
+# Add OpenSSL 1.1 to support Prisma binary
+RUN apk add --no-cache openssl1.1-compat
+
 # Create a non-root user
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
@@ -25,6 +31,8 @@ RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/.prisma ./node_modules/.prisma
 
 # Set ownership to non-root user
 RUN chown -R appuser:appgroup /app
@@ -44,4 +52,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:$PORT/api/health || exit 1
 
 # Start the application
-CMD ["node", "dist/main.js"] 
+CMD ["node", "dist/main.js"]
