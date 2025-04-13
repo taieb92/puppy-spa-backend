@@ -7,10 +7,17 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   // Enable CORS
-  app.enableCors();
+  app.enableCors({
+    origin: 'https://puppy-spa-fe-ten.vercel.app',
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    credentials: true,
+  });
 
   // Enable validation pipe
   app.useGlobalPipes(new ValidationPipe());
+
+  // Set global prefix
+  app.setGlobalPrefix('api');
 
   // Setup Swagger documentation
   const config = new DocumentBuilder()

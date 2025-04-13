@@ -78,6 +78,49 @@ npm test
 - `GET /waiting-list-entries/{id}` - Get a specific entry
 - `GET /waiting-list-entries/list?listId={id}` - Get entries for a list with optional search
 
+## Testing the Deployed Application
+
+The application is deployed at http://159.89.31.47:3000. Here are some curl commands to test the endpoints:
+
+### Health Check
+```bash
+curl http://159.89.31.47:3000/api/health
+```
+
+### Create a Waiting List
+```bash
+curl -X POST http://159.89.31.47:3000/waiting-lists \
+  -H "Content-Type: application/json" \
+  -d '{"date": "2024-03-20"}'
+```
+
+### Get Waiting List by Date
+```bash
+curl http://159.89.31.47:3000/waiting-lists/date/2024-03-20
+```
+
+### Get Waiting Lists by Month
+```bash
+curl http://159.89.31.47:3000/waiting-lists/month/2024-03
+```
+
+### Create a Waiting List Entry
+```bash
+curl -X POST http://159.89.31.47:3000/waiting-list-entries \
+  -H "Content-Type: application/json" \
+  -d '{
+    "listId": 1,
+    "customerName": "John Doe",
+    "phoneNumber": "1234567890",
+    "notes": "Special instructions"
+  }'
+```
+
+### Get Entries for a List
+```bash
+curl "http://159.89.31.47:3000/waiting-list-entries/list?listId=1"
+```
+
 ## Docker
 
 Build the Docker image:
