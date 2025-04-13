@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
   # Triggers the workflow on push or pull request events but only for the "main" branch
   push:
-    branches: ['develop']
+    branches: ['main']
 
 env:
   IMAGE_NAME: puppy-spa-backend
@@ -16,6 +16,7 @@ env:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    environment: prod
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
