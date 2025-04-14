@@ -57,30 +57,32 @@ export class WaitingListEntriesController {
   /**
    * Gets all entries with optional listId, search query and status filter
    * @param listId - Optional ID of the waiting list
-   * @param q - Optional search query for owner or puppy name
-   * @param status - Optional status filter
+   * @param date - Optional date of the waiting list
+   * @param q - Optional search query for customer name or phone number
    * @returns The list of entries
    */
   @Get('list')
   @ApiOperation({
-    summary: 'Get all entries with optional filters',
-    description:
-      'Retrieves all entries, optionally filtered by list, status and search query.',
+    summary: 'Get entries with optional filters',
+    description: 'Retrieves entries with optional list ID, date, and search query filters.',
   })
   @ApiQuery({
     name: 'listId',
-    description: 'Optional ID of the waiting list',
     required: false,
+    type: 'number',
+    description: 'ID of the waiting list',
+  })
+  @ApiQuery({
+    name: 'date',
+    required: false,
+    type: 'string',
+    description: 'Date of the waiting list (YYYY-MM-DD)',
   })
   @ApiQuery({
     name: 'q',
     required: false,
+    type: 'string',
     description: 'Search query for owner or puppy name',
-  })
-  @ApiQuery({
-    name: 'status',
-    required: false,
-    description: 'Filter entries by status',
   })
   @ApiResponse({
     status: 200,
@@ -88,19 +90,23 @@ export class WaitingListEntriesController {
     type: [WaitingListEntryResponseDto],
   })
   @ApiResponse({
+    status: 400,
+    description: 'Bad request - Either listId or date must be provided',
+  })
+  @ApiResponse({
     status: 404,
-    description: 'Not found - The waiting list does not exist',
+    description: 'Not found - No waiting list found for the given ID or date',
   })
   async getEntriesByListId(
     @Query('listId') listId?: string,
+    @Query('date') date?: string,
     @Query('q') searchQuery?: string,
-    @Query('status') status?: string,
   ): Promise<WaitingListEntryResponseDto[]> {
-    return this.waitingListEntriesService.getEntriesByListId(
-      listId ? Number(listId) : undefined,
-      status,
-      searchQuery,
-    );
+    if (!listId && !date) {
+      throw new BadRequestException('Either listId or date must be provided');
+    }
+
+    return this.waitingListEntriesService.getEntriesByListId({ listId, date, searchQuery });
   }
 
   /**

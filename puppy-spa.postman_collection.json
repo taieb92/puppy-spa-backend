@@ -1,0 +1,187 @@
+{
+	"info": {
+		"_postman_id": "b8e3e3e0-5b3e-4b3e-8b3e-3e0b3e3e0b3e",
+		"name": "Puppy Spa API",
+		"description": "API collection for the Puppy Spa backend service",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Waiting Lists",
+			"item": [
+				{
+					"name": "Create Waiting List",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"date\": \"2024-03-20\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/waiting-lists",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "waiting-lists"]
+						},
+						"description": "Creates a new waiting list for a specific date"
+					}
+				},
+				{
+					"name": "Get Waiting List by Date",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/api/waiting-lists/date/2024-03-20",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "waiting-lists", "date", "2024-03-20"]
+						},
+						"description": "Retrieves a waiting list for a specific date"
+					}
+				},
+				{
+					"name": "Get Waiting Lists by Month",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/api/waiting-lists/month/2024-03",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "waiting-lists", "month", "2024-03"]
+						},
+						"description": "Retrieves all waiting lists for a specific month"
+					}
+				}
+			]
+		},
+		{
+			"name": "Waiting List Entries",
+			"item": [
+				{
+					"name": "Create Entry",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"waitingListId\": 1,\n    \"ownerName\": \"John Doe\",\n    \"puppyName\": \"Max\",\n    \"serviceRequired\": \"Grooming\",\n    \"arrivalTime\": \"2024-03-20T10:00:00Z\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/entries?position=1",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "entries"],
+							"query": [
+								{
+									"key": "position",
+									"value": "1",
+									"description": "Optional desired position"
+								}
+							]
+						},
+						"description": "Creates a new entry in a waiting list"
+					}
+				},
+				{
+					"name": "Get Entries",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/api/entries/list?listId=1&date=2024-03-20&q=john",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "entries", "list"],
+							"query": [
+								{
+									"key": "listId",
+									"value": "1",
+									"description": "Optional waiting list ID"
+								},
+								{
+									"key": "date",
+									"value": "2024-03-20",
+									"description": "Optional date (YYYY-MM-DD)"
+								},
+								{
+									"key": "q",
+									"value": "john",
+									"description": "Optional search query"
+								}
+							]
+						},
+						"description": "Retrieves entries with optional filters"
+					}
+				},
+				{
+					"name": "Update Entry Status",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"status\": \"completed\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/entries/1/status",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "entries", "1", "status"]
+						},
+						"description": "Updates the status of a waiting list entry"
+					}
+				},
+				{
+					"name": "Update Entry Position",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"position\": 2\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/entries/1/position",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "entries", "1", "position"]
+						},
+						"description": "Updates the position of a waiting list entry"
+					}
+				},
+				{
+					"name": "Delete Entry",
+					"request": {
+						"method": "DELETE",
+						"url": {
+							"raw": "{{baseUrl}}/api/entries/1",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "entries", "1"]
+						},
+						"description": "Removes a waiting list entry"
+					}
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://159.89.31.47:3000",
+			"type": "string"
+		}
+	]
+} 

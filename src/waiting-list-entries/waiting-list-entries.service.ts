@@ -12,6 +12,12 @@ import { UpdateEntryPositionDto } from './dto/update-entry-position.dto';
 import { WaitingListEntryResponseDto } from './dto/waiting-list-entry-response.dto';
 import { Prisma, WaitingListEntry } from '@prisma/client';
 
+interface GetEntriesParams {
+  listId?: string;
+  date?: string;
+  searchQuery?: string;
+}
+
 @Injectable()
 export class WaitingListEntriesService {
   constructor(private readonly prisma: PrismaService) {}
@@ -122,48 +128,56 @@ export class WaitingListEntriesService {
    * @throws NotFoundException if the waiting list doesn't exist
    * @throws InternalServerErrorException if the query fails
    */
-  async getEntriesByListId(
-    listId?: number,
-    status?: string,
-    searchQuery?: string,
-  ): Promise<WaitingListEntryResponseDto[]> {
-    try {
-      if (listId) {
-        const waitingList = await this.prisma.waitingList.findUnique({
-          where: { id: listId },
-        });
+  async getEntriesByListId({ listId, date, searchQuery }: GetEntriesParams): Promise<WaitingListEntryResponseDto[]> {
+    let waitingListId: number | undefined;
 
-        if (!waitingList) {
-          throw new NotFoundException(`Waiting list with ID ${listId} not found`);
-        }
-      }
-
-      const entries = await this.prisma.waitingListEntry.findMany({
-        where: {
-          ...(listId && { waitingListId: listId }),
-          ...(status && { status }),
-          ...(searchQuery && {
-            OR: [
-              { ownerName: { contains: searchQuery } },
-              { puppyName: { contains: searchQuery } },
-            ],
-          }),
-        },
-        orderBy: {
-          position: 'asc',
-        },
+    // If date is provided, find the waiting list ID for that date
+    if (date) {
+      const waitingList = await this.prisma.waitingList.findUnique({
+        where: { date: new Date(date) },
       });
 
-      return entries.map((entry) => this.mapToResponseDto(entry));
-    } catch (error) {
-      if (error instanceof NotFoundException) {
-        throw error;
+      if (!waitingList) {
+        throw new NotFoundException(`No waiting list found for date ${date}`);
       }
-      console.error('Error fetching entries:', error);
-      throw new InternalServerErrorException(
-        `Failed to fetch entries: ${error.message}`
-      );
+
+      waitingListId = waitingList.id;
+    } else if (listId) {
+      waitingListId = Number(listId);
+      
+      // Verify the list exists
+      const waitingList = await this.prisma.waitingList.findUnique({
+        where: { id: waitingListId },
+      });
+
+      if (!waitingList) {
+        throw new NotFoundException(`No waiting list found with ID ${listId}`);
+      }
     }
+
+    const where: Prisma.WaitingListEntryWhereInput = {
+      ...(waitingListId && { waitingListId }),
+      ...(searchQuery && {
+        OR: [
+          { ownerName: { contains: searchQuery } },
+          { puppyName: { contains: searchQuery } },
+        ],
+      }),
+    };
+
+    const entries = await this.prisma.waitingListEntry.findMany({
+      where,
+      orderBy: { createdAt: 'asc' },
+      include: {
+        waitingList: {
+          select: {
+            date: true,
+          },
+        },
+      },
+    });
+
+    return entries.map(this.mapToResponseDto);
   }
 
   /**
@@ -253,15 +267,14 @@ export class WaitingListEntriesService {
    * @param entry - The Prisma WaitingListEntry object
    * @returns The mapped WaitingListEntryResponseDto
    */
-  private mapToResponseDto(entry: WaitingListEntry): WaitingListEntryResponseDto {
+  private mapToResponseDto(entry: WaitingListEntry & { waitingList?: { date: Date } }): WaitingListEntryResponseDto {
     return {
       id: entry.id,
-      ownerName: entry.ownerName,
-      puppyName: entry.puppyName,
+      waitingListId: entry.waitingListId,
+      ownerName: entry.ownerName || '',
+      puppyName: entry.puppyName || '',
       serviceRequired: entry.serviceRequired,
-      arrivalTime: entry.arrivalTime,
-      position: entry.position,
-      status: entry.status,
+      createdAt: entry.createdAt,
     };
   }
 }
