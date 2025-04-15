@@ -35,12 +35,9 @@ export class WaitingListsService {
         throw new BadRequestException('Invalid date format. Please use YYYY-MM-DD format');
       }
 
-      // Set time to midnight UTC
-      date.setUTCHours(0, 0, 0, 0);
-
       // Check if a waiting list already exists for this date
       const existingList = await this.prisma.waitingList.findUnique({
-        where: { date },
+        where: { date: new Date(createWaitingListDto.date) },
       });
 
       if (existingList) {
@@ -51,7 +48,7 @@ export class WaitingListsService {
 
       const waitingList = await this.prisma.waitingList.create({
         data: {
-          date,
+          date: new Date(createWaitingListDto.date),
         },
       });
 
@@ -60,7 +57,6 @@ export class WaitingListsService {
       if (error instanceof BadRequestException || error instanceof ConflictException) {
         throw error;
       }
-      console.error('Error creating waiting list:', error);
       throw new InternalServerErrorException('Failed to create waiting list');
     }
   }
@@ -110,7 +106,6 @@ export class WaitingListsService {
       if (error instanceof BadRequestException) {
         throw error;
       }
-      console.error('Error fetching waiting lists by month:', error);
       throw new InternalServerErrorException(
         `Failed to fetch waiting lists by month: ${error.message}`
       );
@@ -151,7 +146,6 @@ export class WaitingListsService {
       if (error instanceof BadRequestException || error instanceof NotFoundException) {
         throw error;
       }
-      console.error('Error fetching waiting list by date:', error);
       throw new InternalServerErrorException(
         `Failed to fetch waiting list by date: ${error.message}`
       );
