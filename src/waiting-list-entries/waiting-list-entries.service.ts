@@ -69,6 +69,15 @@ export class WaitingListEntriesService {
       }
     }
 
+    // Find the highest position in the current list
+    const highestPositionEntry = await this.prisma.waitingListEntry.findFirst({
+      where: { waitingListId },
+      orderBy: { position: 'desc' },
+      select: { position: true },
+    });
+
+    const nextPosition = (highestPositionEntry?.position ?? 0) + 1;
+
     // Create the entry with the found or provided waiting list ID
     const entry = await this.prisma.waitingListEntry.create({
       data: {
@@ -77,7 +86,7 @@ export class WaitingListEntriesService {
         puppyName: createWaitingListEntryDto.puppyName,
         serviceRequired: createWaitingListEntryDto.serviceRequired,
         arrivalTime: new Date(createWaitingListEntryDto.arrivalTime),
-        position: 0, // Will be updated by trigger/procedure
+        position: nextPosition,
         status: 'waiting',
       },
     });
@@ -188,18 +197,85 @@ export class WaitingListEntriesService {
     positionDto: UpdateEntryPositionDto,
   ): Promise<WaitingListEntryResponseDto> {
     try {
-      const entry = await this.prisma.waitingListEntry.update({
+      // Fetch current position of the entry with entryId
+      const currentEntry = await this.prisma.waitingListEntry.findUnique({
         where: { id: entryId },
-        data: positionDto,
+        select: { position: true, waitingListId: true },
       });
-      return this.mapToResponseDto(entry);
-    } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError) {
-        if (error.code === 'P2025') {
+
+      if (!currentEntry) {
+        throw new NotFoundException(`Entry with ID ${entryId} not found`);
+      }
+
+      const currentPosition = currentEntry.position;
+      const newPosition = positionDto.position;
+
+      // If newPosition is equal to currentPosition, do nothing
+      if (currentPosition === newPosition) {
+        const entry = await this.prisma.waitingListEntry.findUnique({ 
+          where: { id: entryId }
+        });
+        if (!entry) {
           throw new NotFoundException(`Entry with ID ${entryId} not found`);
         }
+        return this.mapToResponseDto(entry);
       }
-      console.error('Error updating entry position:', error);
+
+      // Get the total number of entries to validate the new position
+      const totalEntries = await this.prisma.waitingListEntry.count({
+        where: { waitingListId: currentEntry.waitingListId },
+      });
+
+      if (newPosition < 1 || newPosition > totalEntries) {
+        throw new ConflictException(`Position must be between 1 and ${totalEntries}`);
+      }
+
+      return await this.prisma.$transaction(async (prisma) => {
+        if (newPosition < currentPosition) {
+          // Moving up: increment positions of entries between new and current (inclusive new, exclusive current)
+          await prisma.waitingListEntry.updateMany({
+            where: {
+              waitingListId: currentEntry.waitingListId,
+              position: {
+                gte: newPosition,
+                lt: currentPosition
+              }
+            },
+            data: {
+              position: { increment: 1 }
+            }
+          });
+        } else {
+          // Moving down: decrement positions of entries between current and new (exclusive current, inclusive new)
+          await prisma.waitingListEntry.updateMany({
+            where: {
+              waitingListId: currentEntry.waitingListId,
+              position: {
+                gt: currentPosition,
+                lte: newPosition
+              }
+            },
+            data: {
+              position: { decrement: 1 }
+            }
+          });
+        }
+
+        // Set the entry's position to newPosition
+        const updatedEntry = await prisma.waitingListEntry.update({
+          where: { id: entryId },
+          data: { position: newPosition }
+        });
+
+        return this.mapToResponseDto(updatedEntry);
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+        throw new NotFoundException(`Entry with ID ${entryId} not found`);
+      }
+      if (error instanceof ConflictException || error instanceof NotFoundException) {
+        throw error;
+      }
       throw new InternalServerErrorException('Failed to update entry position');
     }
   }
