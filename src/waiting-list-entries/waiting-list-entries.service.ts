@@ -189,7 +189,7 @@ export class WaitingListEntriesService {
       const updatedEntry = await this.prisma.waitingListEntry.update({
         where: { id },
         data: {
-          status: updateEntryStatusDto.status,
+          status: updateEntryStatusDto.status as EntryStatus,
         },
       });
 
@@ -220,7 +220,13 @@ export class WaitingListEntriesService {
       // Fetch current position of the entry with entryId
       const currentEntry = await this.prisma.waitingListEntry.findUnique({
         where: { id: entryId },
-        select: { position: true, waitingListId: true },
+        select: { 
+          id: true,
+          position: true, 
+          waitingListId: true,
+          ownerName: true,
+          puppyName: true 
+        },
       });
 
       if (!currentEntry) {
@@ -232,19 +238,28 @@ export class WaitingListEntriesService {
 
       // If newPosition is equal to currentPosition, do nothing
       if (currentPosition === newPosition) {
-        const entry = await this.prisma.waitingListEntry.findUnique({ 
+        const unchangedEntry = await this.prisma.waitingListEntry.findUnique({ 
           where: { id: entryId }
         });
-        if (!entry) {
+        if (!unchangedEntry) {
           throw new NotFoundException(`Entry with ID ${entryId} not found`);
         }
-        return this.mapToResponseDto(entry);
+        return this.mapToResponseDto(unchangedEntry);
       }
 
-      // Get the total number of entries to validate the new position
-      const totalEntries = await this.prisma.waitingListEntry.count({
+      // Get all entries in the list to validate the new position
+      const allEntries = await this.prisma.waitingListEntry.findMany({
         where: { waitingListId: currentEntry.waitingListId },
+        orderBy: { position: 'asc' },
+        select: {
+          id: true,
+          position: true,
+          ownerName: true,
+          puppyName: true
+        }
       });
+
+      const totalEntries = allEntries.length;
 
       if (newPosition < 1 || newPosition > totalEntries) {
         throw new ConflictException(`Position must be between 1 and ${totalEntries}`);
@@ -252,7 +267,7 @@ export class WaitingListEntriesService {
 
       return await this.prisma.$transaction(async (prisma) => {
         if (newPosition < currentPosition) {
-          // Moving up: increment positions of entries between new and current (inclusive new, exclusive current)
+          // Moving up in the list (to a lower position number)
           await prisma.waitingListEntry.updateMany({
             where: {
               waitingListId: currentEntry.waitingListId,
@@ -266,7 +281,7 @@ export class WaitingListEntriesService {
             }
           });
         } else {
-          // Moving down: decrement positions of entries between current and new (exclusive current, inclusive new)
+          // Moving down in the list (to a higher position number)
           await prisma.waitingListEntry.updateMany({
             where: {
               waitingListId: currentEntry.waitingListId,
@@ -286,6 +301,21 @@ export class WaitingListEntriesService {
           where: { id: entryId },
           data: { position: newPosition }
         });
+
+        // Verify final positions
+        const finalEntries = await prisma.waitingListEntry.findMany({
+          where: { waitingListId: currentEntry.waitingListId },
+          orderBy: { position: 'asc' }
+        });
+
+        // Verify position uniqueness and continuity
+        const positions = finalEntries.map(e => e.position).sort((a, b) => a - b);
+        const isValid = positions.every((pos, index) => pos === index + 1);
+        const uniquePositions = new Set(positions).size === positions.length;
+        
+        if (!isValid || !uniquePositions) {
+          throw new InternalServerErrorException('Position reordering resulted in invalid state');
+        }
 
         return this.mapToResponseDto(updatedEntry);
       });
