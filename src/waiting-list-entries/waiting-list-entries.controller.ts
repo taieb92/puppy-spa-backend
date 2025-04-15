@@ -41,16 +41,16 @@ export class WaitingListEntriesController {
   }
 
   /**
-   * Gets all entries with optional listId, search query and status filter
+   * Gets entries with optional filters
    * @param listId - Optional ID of the waiting list
    * @param date - Optional date of the waiting list
-   * @param q - Optional search query for customer name or phone number
+   * @param q - Optional search query for owner or puppy name
    * @returns The list of entries
    */
   @Get('list')
   @ApiOperation({
     summary: 'Get entries with optional filters',
-    description: 'Retrieves entries with optional list ID, date, and search query filters.',
+    description: 'Retrieves entries with optional list ID, date, or search query filters.',
   })
   @ApiQuery({
     name: 'listId',
@@ -77,22 +77,22 @@ export class WaitingListEntriesController {
   })
   @ApiResponse({
     status: 400,
-    description: 'Bad request - Either listId or date must be provided',
+    description: 'Bad request - At least one of listId, date, or search query must be provided',
   })
   @ApiResponse({
     status: 404,
     description: 'Not found - No waiting list found for the given ID or date',
   })
-  async getEntriesByListId(
+  async getEntries(
     @Query('listId') listId?: string,
     @Query('date') date?: string,
     @Query('q') searchQuery?: string,
   ): Promise<WaitingListEntryResponseDto[]> {
-    if (!listId && !date) {
-      throw new BadRequestException('Either listId or date must be provided');
+    if (!listId && !date && !searchQuery) {
+      throw new BadRequestException('At least one of listId, date, or search query must be provided');
     }
 
-    return this.waitingListEntriesService.getEntriesByListId({ listId, date, searchQuery });
+    return this.waitingListEntriesService.getEntries({ listId, date, searchQuery });
   }
 
   /**

@@ -95,15 +95,11 @@ export class WaitingListEntriesService {
   }
 
   /**
-   * Gets all entries, optionally filtered by listId, status and search query
-   * @param listId - Optional ID of the waiting list
-   * @param status - Optional status filter
-   * @param searchQuery - Optional search query for owner or puppy name
+   * Gets entries with optional filters
+   * @param params - Optional parameters for filtering entries
    * @returns The list of entries
-   * @throws NotFoundException if the waiting list doesn't exist
-   * @throws InternalServerErrorException if the query fails
    */
-  async getEntriesByListId({ listId, date, searchQuery }: GetEntriesParams): Promise<WaitingListEntryResponseDto[]> {
+  async getEntries({ listId, date, searchQuery }: GetEntriesParams): Promise<WaitingListEntryResponseDto[]> {
     let waitingListId: number | undefined;
 
     // If date is provided, find the waiting list ID for that date
@@ -120,7 +116,7 @@ export class WaitingListEntriesService {
     } else if (listId) {
       waitingListId = Number(listId);
       
-      // Verify the list exists
+      // Verify the list exists if listId is provided
       const waitingList = await this.prisma.waitingList.findUnique({
         where: { id: waitingListId },
       });
@@ -142,14 +138,10 @@ export class WaitingListEntriesService {
 
     const entries = await this.prisma.waitingListEntry.findMany({
       where,
-      orderBy: { createdAt: 'asc' },
-      include: {
-        waitingList: {
-          select: {
-            date: true,
-          },
-        },
-      },
+      orderBy: [
+        { waitingListId: 'asc' },
+        { position: 'asc' }
+      ],
     });
 
     return entries.map(this.mapToResponseDto);
