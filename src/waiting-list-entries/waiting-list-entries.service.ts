@@ -316,6 +316,9 @@ export class WaitingListEntriesService {
       ownerName: entry.ownerName || '',
       puppyName: entry.puppyName || '',
       serviceRequired: entry.serviceRequired,
+      position: entry.position,
+      status: entry.status,
+      arrivalTime: entry.arrivalTime,
       createdAt: entry.createdAt,
     };
   }
