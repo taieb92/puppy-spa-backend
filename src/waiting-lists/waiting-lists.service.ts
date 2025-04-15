@@ -35,9 +35,12 @@ export class WaitingListsService {
         throw new BadRequestException('Invalid date format. Please use YYYY-MM-DD format');
       }
 
+      // Set time to midnight UTC
+      date.setUTCHours(0, 0, 0, 0);
+
       // Check if a waiting list already exists for this date
       const existingList = await this.prisma.waitingList.findUnique({
-        where: { date: new Date(createWaitingListDto.date) },
+        where: { date },
       });
 
       if (existingList) {
@@ -48,7 +51,7 @@ export class WaitingListsService {
 
       const waitingList = await this.prisma.waitingList.create({
         data: {
-          date: new Date(createWaitingListDto.date),
+          date,
         },
       });
 
@@ -83,9 +86,9 @@ export class WaitingListsService {
         throw new BadRequestException('Invalid month format. Please use YYYY-MM format');
       }
 
-      // Calculate start and end dates for the month
-      const startDate = new Date(year, monthNum - 1, 1);
-      const endDate = new Date(year, monthNum, 0);
+      // Calculate start and end dates for the month (in UTC)
+      const startDate = new Date(Date.UTC(year, monthNum - 1, 1, 0, 0, 0, 0));
+      const endDate = new Date(Date.UTC(year, monthNum, 0, 0, 0, 0, 0));
 
       const waitingLists = await this.prisma.waitingList.findMany({
         where: {
@@ -130,12 +133,12 @@ export class WaitingListsService {
         throw new BadRequestException('Invalid date format. Please use YYYY-MM-DD format');
       }
 
-      // Convert to ISO string to ensure consistent format
-      const isoDate = parsedDate.toISOString().split('T')[0];
+      // Set time to midnight UTC
+      parsedDate.setUTCHours(0, 0, 0, 0);
 
       const waitingList = await this.prisma.waitingList.findUnique({
         where: { 
-          date: new Date(isoDate)
+          date: parsedDate
         },
       });
 

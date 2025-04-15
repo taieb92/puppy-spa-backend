@@ -18,13 +18,12 @@ export class WaitingListEntriesController {
   /**
    * Creates a new entry in a waiting list
    * @param createWaitingListEntryDto - The data for creating a new entry
-   * @param desiredPosition - Optional position for the new entry
    * @returns The created entry
    */
   @Post()
   @ApiOperation({
     summary: 'Create a new waiting list entry',
-    description: 'Creates a new entry in the specified waiting list.',
+    description: 'Creates a new entry. If waitingListId is not provided, finds the list by arrivalTime date.',
   })
   @ApiResponse({
     status: 201,
@@ -32,26 +31,13 @@ export class WaitingListEntriesController {
     type: WaitingListEntryResponseDto,
   })
   @ApiResponse({
-    status: 400,
-    description: 'Bad request - Invalid input data or missing required fields',
-  })
-  @ApiResponse({
     status: 404,
-    description: 'Not found - The waiting list does not exist',
+    description: 'Waiting list not found for the given ID or date.',
   })
-  @ApiResponse({
-    status: 409,
-    description: 'Conflict - Invalid position or other conflict',
-  })
-  async createEntry(
+  async create(
     @Body() createWaitingListEntryDto: CreateWaitingListEntryDto,
-    @Query('position') desiredPosition?: number,
   ): Promise<WaitingListEntryResponseDto> {
-    return this.waitingListEntriesService.createEntry(
-      createWaitingListEntryDto.waitingListId,
-      createWaitingListEntryDto,
-      desiredPosition,
-    );
+    return this.waitingListEntriesService.create(createWaitingListEntryDto);
   }
 
   /**

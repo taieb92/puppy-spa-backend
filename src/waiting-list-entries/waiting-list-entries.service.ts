@@ -33,90 +33,56 @@ export class WaitingListEntriesService {
    * @throws ConflictException if the position is invalid
    * @throws InternalServerErrorException if the creation fails
    */
-  async createEntry(
-    listId: number,
-    entryData: Omit<CreateWaitingListEntryDto, 'waitingListId'>,
-    desiredPosition?: number,
-  ): Promise<WaitingListEntryResponseDto> {
-    try {
-      // Validate that at least one name is provided
-      if (!entryData.ownerName && !entryData.puppyName) {
-        throw new BadRequestException('Either ownerName or puppyName must be provided');
-      }
+  async create(createWaitingListEntryDto: CreateWaitingListEntryDto): Promise<WaitingListEntryResponseDto> {
+    let waitingListId = createWaitingListEntryDto.waitingListId;
 
-      return await this.prisma.$transaction(async (tx) => {
-        // Verify the waiting list exists
-        const waitingList = await tx.waitingList.findUnique({
-          where: { id: listId },
-        });
+    // If waitingListId is not provided, find or create waiting list by date
+    if (!waitingListId) {
+      const arrivalTime = new Date(createWaitingListEntryDto.arrivalTime);
+      // Reset time to midnight UTC for the same date
+      const arrivalDate = new Date(Date.UTC(
+        arrivalTime.getUTCFullYear(),
+        arrivalTime.getUTCMonth(),
+        arrivalTime.getUTCDate(),
+        0, 0, 0, 0
+      ));
 
-        if (!waitingList) {
-          throw new NotFoundException(`Waiting list with ID ${listId} not found`);
-        }
-
-        // Get the current highest position in the list
-        const lastEntry = await tx.waitingListEntry.findFirst({
-          where: { waitingListId: listId },
-          orderBy: { position: 'desc' },
-        });
-
-        const maxPosition = lastEntry?.position ?? 0;
-
-        // If no desired position is provided, append to the end
-        if (!desiredPosition) {
-          const entry = await tx.waitingListEntry.create({
-            data: {
-              ...entryData,
-              waitingListId: listId,
-              position: maxPosition + 1,
-            },
-          });
-          return this.mapToResponseDto(entry);
-        }
-
-        // Validate desired position
-        if (desiredPosition < 1 || desiredPosition > maxPosition + 1) {
-          throw new ConflictException(
-            `Invalid position ${desiredPosition}. Position must be between 1 and ${maxPosition + 1}`,
-          );
-        }
-
-        // Shift all entries from the desired position onwards
-        await tx.waitingListEntry.updateMany({
-          where: {
-            waitingListId: listId,
-            position: {
-              gte: desiredPosition,
-            },
-          },
-          data: {
-            position: {
-              increment: 1,
-            },
-          },
-        });
-
-        // Create the new entry at the desired position
-        const entry = await tx.waitingListEntry.create({
-          data: {
-            ...entryData,
-            waitingListId: listId,
-            position: desiredPosition,
-          },
-        });
-        return this.mapToResponseDto(entry);
+      const waitingList = await this.prisma.waitingList.findUnique({
+        where: { date: arrivalDate },
       });
-    } catch (error) {
-      if (
-        error instanceof NotFoundException ||
-        error instanceof ConflictException ||
-        error instanceof BadRequestException
-      ) {
-        throw error;
+
+      if (!waitingList) {
+        throw new NotFoundException(
+          `No waiting list found for date ${arrivalDate.toISOString().split('T')[0]}. Please create a waiting list first.`,
+        );
       }
-      console.error('Error creating entry:', error);
-      throw new InternalServerErrorException('Failed to create entry');
+
+      waitingListId = waitingList.id;
+    } else {
+      // Verify the waiting list exists if ID is provided
+      const waitingList = await this.prisma.waitingList.findUnique({
+        where: { id: waitingListId },
+      });
+
+      if (!waitingList) {
+        throw new NotFoundException(`Waiting list with ID ${waitingListId} not found`);
+      }
     }
+
+    // Create the entry with the found or provided waiting list ID
+    const entry = await this.prisma.waitingListEntry.create({
+      data: {
+        waitingListId,
+        ownerName: createWaitingListEntryDto.ownerName,
+        puppyName: createWaitingListEntryDto.puppyName,
+        serviceRequired: createWaitingListEntryDto.serviceRequired,
+        arrivalTime: new Date(createWaitingListEntryDto.arrivalTime),
+        position: 0, // Will be updated by trigger/procedure
+        status: 'waiting',
+      },
+    });
+
+    return this.mapToResponseDto(entry);
   }
 
   /**
@@ -267,7 +233,7 @@ export class WaitingListEntriesService {
    * @param entry - The Prisma WaitingListEntry object
    * @returns The mapped WaitingListEntryResponseDto
    */
-  private mapToResponseDto(entry: WaitingListEntry & { waitingList?: { date: Date } }): WaitingListEntryResponseDto {
+  private mapToResponseDto(entry: WaitingListEntry): WaitingListEntryResponseDto {
     return {
       id: entry.id,
       waitingListId: entry.waitingListId,

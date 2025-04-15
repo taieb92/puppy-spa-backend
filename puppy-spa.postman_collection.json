@@ -61,7 +61,7 @@
 			"name": "Waiting List Entries",
 			"item": [
 				{
-					"name": "Create Entry",
+					"name": "Create Entry (with List ID)",
 					"request": {
 						"method": "POST",
 						"header": [
@@ -75,18 +75,33 @@
 							"raw": "{\n    \"waitingListId\": 1,\n    \"ownerName\": \"John Doe\",\n    \"puppyName\": \"Max\",\n    \"serviceRequired\": \"Grooming\",\n    \"arrivalTime\": \"2024-03-20T10:00:00Z\"\n}"
 						},
 						"url": {
-							"raw": "{{baseUrl}}/api/entries?position=1",
+							"raw": "{{baseUrl}}/api/entries",
 							"host": ["{{baseUrl}}"],
-							"path": ["api", "entries"],
-							"query": [
-								{
-									"key": "position",
-									"value": "1",
-									"description": "Optional desired position"
-								}
-							]
+							"path": ["api", "entries"]
 						},
-						"description": "Creates a new entry in a waiting list"
+						"description": "Creates a new entry with a specific waiting list ID"
+					}
+				},
+				{
+					"name": "Create Entry (by Date)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"ownerName\": \"John Doe\",\n    \"puppyName\": \"Max\",\n    \"serviceRequired\": \"Grooming\",\n    \"arrivalTime\": \"2024-03-20T10:00:00Z\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/entries",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "entries"]
+						},
+						"description": "Creates a new entry using the arrival time to find the waiting list"
 					}
 				},
 				{

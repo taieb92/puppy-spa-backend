@@ -3,12 +3,12 @@ import { IsOptional, IsString, IsDateString, IsNumber, Min, IsInt } from 'class-
 
 export class CreateWaitingListEntryDto {
   @ApiProperty({
-    description: 'The ID of the waiting list this entry belongs to',
-    example: 1,
+    description: 'The ID of the waiting list (optional if arrivalTime is provided)',
+    required: false,
   })
-  @IsInt()
-  @Min(1)
-  waitingListId: number;
+  @IsNumber()
+  @IsOptional()
+  waitingListId?: number;
 
   @ApiProperty({
     description: 'The name of the puppy owner',
