@@ -12,6 +12,12 @@ import { UpdateEntryPositionDto } from './dto/update-entry-position.dto';
 import { WaitingListEntryResponseDto } from './dto/waiting-list-entry-response.dto';
 import { Prisma, WaitingListEntry } from '@prisma/client';
 
+// Define the status enum for consistency
+export enum EntryStatus {
+  WAITING = 'WAITING',
+  COMPLETED = 'COMPLETED',
+}
+
 interface GetEntriesParams {
   listId?: string;
   date?: string;
@@ -87,7 +93,7 @@ export class WaitingListEntriesService {
         data: {
           waitingListId,
           position,
-          status: 'waiting',
+          status: EntryStatus.WAITING,
           arrivalTime: new Date(createEntryDto.arrivalTime),
           ownerName: createEntryDto.ownerName,
           puppyName: createEntryDto.puppyName,
@@ -112,51 +118,59 @@ export class WaitingListEntriesService {
    * @returns The list of entries
    */
   async getEntries({ listId, date, searchQuery }: GetEntriesParams): Promise<WaitingListEntryResponseDto[]> {
-    let waitingListId: number | undefined;
+    try {
+      const where: Prisma.WaitingListEntryWhereInput = {};
 
-    // If date is provided, find the waiting list ID for that date
-    if (date) {
-      const waitingList = await this.prisma.waitingList.findUnique({
-        where: { date: new Date(date) },
-      });
+      if (date) {
+        const searchDate = new Date(date);
+        // Set time to start of day
+        searchDate.setHours(0, 0, 0, 0);
+        const endDate = new Date(searchDate);
+        // Set time to end of day
+        endDate.setHours(23, 59, 59, 999);
 
-      if (!waitingList) {
-        throw new NotFoundException(`No waiting list found for date ${date}`);
+        where.arrivalTime = {
+          gte: searchDate,
+          lte: endDate,
+        };
+      } else if (listId) {
+        where.waitingListId = Number(listId);
+        
+        // Verify the list exists if listId is provided
+        const waitingList = await this.prisma.waitingList.findUnique({
+          where: { id: Number(listId) },
+        });
+
+        if (!waitingList) {
+          throw new NotFoundException(`No waiting list found with ID ${listId}`);
+        }
       }
 
-      waitingListId = waitingList.id;
-    } else if (listId) {
-      waitingListId = Number(listId);
-      
-      // Verify the list exists if listId is provided
-      const waitingList = await this.prisma.waitingList.findUnique({
-        where: { id: waitingListId },
-      });
-
-      if (!waitingList) {
-        throw new NotFoundException(`No waiting list found with ID ${listId}`);
-      }
-    }
-
-    const where: Prisma.WaitingListEntryWhereInput = {
-      ...(waitingListId && { waitingListId }),
-      ...(searchQuery && {
-        OR: [
+      if (searchQuery) {
+        where.OR = [
           { ownerName: { contains: searchQuery } },
           { puppyName: { contains: searchQuery } },
+          { serviceRequired: { contains: searchQuery } },
+        ];
+      }
+
+      const entries = await this.prisma.waitingListEntry.findMany({
+        where,
+        orderBy: [
+          { arrivalTime: 'asc' },
+          { position: 'asc' }
         ],
-      }),
-    };
+      });
 
-    const entries = await this.prisma.waitingListEntry.findMany({
-      where,
-      orderBy: [
-        { waitingListId: 'asc' },
-        { position: 'asc' }
-      ],
-    });
-
-    return entries.map(this.mapToResponseDto);
+      return entries.map(this.mapToResponseDto);
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new InternalServerErrorException(
+        `Failed to get entries: ${error.message}`,
+      );
+    }
   }
 
   /**

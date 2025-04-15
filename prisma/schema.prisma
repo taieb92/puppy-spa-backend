@@ -14,6 +14,11 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum EntryStatus {
+  WAITING
+  COMPLETED
+}
+
 model WaitingList {
   id        Int      @id @default(autoincrement())
   date      DateTime @unique
@@ -30,7 +35,7 @@ model WaitingListEntry {
   serviceRequired String
   arrivalTime     DateTime
   position        Int
-  status          String        @default("waiting")
+  status          EntryStatus  @default(WAITING)
   waitingListId   Int
   waitingList     WaitingList   @relation(fields: [waitingListId], references: [id])
   createdAt       DateTime      @default(now())
