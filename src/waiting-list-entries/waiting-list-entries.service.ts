@@ -118,59 +118,51 @@ export class WaitingListEntriesService {
    * @returns The list of entries
    */
   async getEntries({ listId, date, searchQuery }: GetEntriesParams): Promise<WaitingListEntryResponseDto[]> {
-    try {
-      const where: Prisma.WaitingListEntryWhereInput = {};
+    let waitingListId: number | undefined;
 
-      if (date) {
-        const searchDate = new Date(date);
-        // Set time to start of day
-        searchDate.setHours(0, 0, 0, 0);
-        const endDate = new Date(searchDate);
-        // Set time to end of day
-        endDate.setHours(23, 59, 59, 999);
-
-        where.arrivalTime = {
-          gte: searchDate,
-          lte: endDate,
-        };
-      } else if (listId) {
-        where.waitingListId = Number(listId);
-        
-        // Verify the list exists if listId is provided
-        const waitingList = await this.prisma.waitingList.findUnique({
-          where: { id: Number(listId) },
-        });
-
-        if (!waitingList) {
-          throw new NotFoundException(`No waiting list found with ID ${listId}`);
-        }
-      }
-
-      if (searchQuery) {
-        where.OR = [
-          { ownerName: { contains: searchQuery } },
-          { puppyName: { contains: searchQuery } },
-          { serviceRequired: { contains: searchQuery } },
-        ];
-      }
-
-      const entries = await this.prisma.waitingListEntry.findMany({
-        where,
-        orderBy: [
-          { arrivalTime: 'asc' },
-          { position: 'asc' }
-        ],
+    // If date is provided, find the waiting list ID for that date
+    if (date) {
+      const waitingList = await this.prisma.waitingList.findUnique({
+        where: { date: new Date(date) },
       });
 
-      return entries.map(this.mapToResponseDto);
-    } catch (error) {
-      if (error instanceof NotFoundException) {
-        throw error;
+      if (!waitingList) {
+        throw new NotFoundException(`No waiting list found for date ${date}`);
       }
-      throw new InternalServerErrorException(
-        `Failed to get entries: ${error.message}`,
-      );
+
+      waitingListId = waitingList.id;
+    } else if (listId) {
+      waitingListId = Number(listId);
+      
+      // Verify the list exists if listId is provided
+      const waitingList = await this.prisma.waitingList.findUnique({
+        where: { id: waitingListId },
+      });
+
+      if (!waitingList) {
+        throw new NotFoundException(`No waiting list found with ID ${listId}`);
+      }
     }
+
+    const where: Prisma.WaitingListEntryWhereInput = {
+      ...(waitingListId && { waitingListId }),
+      ...(searchQuery && {
+        OR: [
+          { ownerName: { contains: searchQuery } },
+          { puppyName: { contains: searchQuery } },
+        ],
+      }),
+    };
+
+    const entries = await this.prisma.waitingListEntry.findMany({
+      where,
+      orderBy: [
+        { waitingListId: 'asc' },
+        { position: 'asc' }
+      ],
+    });
+
+    return entries.map(this.mapToResponseDto);
   }
 
   /**
