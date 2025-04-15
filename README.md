@@ -1,37 +1,97 @@
-# Puppy Spa Backend
+# Puppy Spa Waiting List System
 
-A NestJS backend application for managing a puppy spa service, handling waiting lists and appointments.
+A modern replacement for the physical logbook system at Puppy Spa, providing digital waiting list management with real-time updates and historical tracking.
+
+## System Architecture
+
+```mermaid
+graph TD
+    subgraph "Client Layer"
+        B[Browser] --> N[Next.js Frontend]
+    end
+
+    subgraph "CDN & DNS"
+        CF[Cloudflare]
+    end
+
+    subgraph "Frontend Hosting"
+        V[Vercel]
+    end
+
+    subgraph "DigitalOcean Droplet"
+        NG[Nginx Reverse Proxy]
+        DC[Docker Container]
+        NJ[NestJS API]
+    end
+
+    subgraph "Database"
+        DB[(MySQL)]
+    end
+
+    B --> CF
+    CF --> V
+    CF --> NG
+    NG --> DC
+    DC --> NJ
+    NJ --> DB
+```
 
 ## Features
 
-- Waiting list management
-- Appointment scheduling
-- RESTful API endpoints
-- MySQL database integration with Prisma
-- Docker containerization
-- CI/CD with GitHub Actions
+### Daily Operations
+- **Waiting List Management**
+  - Create daily waiting lists automatically
+  - View and manage current day's queue
+  - Real-time position updates
+  - Mark entries as completed
+
+### Calendar View
+- Monthly overview of waiting lists
+- Historical data access
+- Date-based navigation
+
+### Queue Management
+- Automatic queue positioning
+- Drag-and-drop reordering
+- Status tracking (WAITING/COMPLETED)
+- Search functionality
+
+## Tech Stack
+
+### Frontend
+- **Framework**: Next.js
+- **Language**: TypeScript
+- **Hosting**: Vercel
+
+### Backend
+- **Framework**: NestJS
+- **Language**: TypeScript
+- **Database**: MySQL
+- **ORM**: Prisma
+- **Container**: Docker
+- **Reverse Proxy**: Nginx
+- **Cloud**: DigitalOcean
+
+### Infrastructure
+- **DNS/CDN**: Cloudflare
+- **CI/CD**: GitHub Actions
+- **Container Registry**: DigitalOcean Container Registry
 
 ## Prerequisites
 
-- Node.js 20.x
-- npm
+- Node.js (v18 or higher)
+- npm (v9 or higher)
+- MySQL (v8 or higher)
 - Docker
-- MySQL database
-
-## Environment Variables
-
-Create a `.env` file in the root directory with the following variables:
-
-```env
-DATABASE_URL="mysql://user:password@host:port/database"
-PORT=3000
-```
+- DigitalOcean account
+- Cloudflare account
+- Vercel account
 
 ## Installation
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/your-username/puppy-spa-backend.git
+git clone https://github.com/yourusername/puppy-spa-backend.git
 cd puppy-spa-backend
 ```
 
@@ -40,146 +100,91 @@ cd puppy-spa-backend
 npm install
 ```
 
-3. Set up the database:
+3. Set up environment variables:
 ```bash
-npx prisma migrate dev
+cp .env.example .env
+```
+Required environment variables:
+```env
+# Database
+DATABASE_URL="mysql://user:password@host:port/database"
+
+# Application
+PORT=3000
+NODE_ENV=development
+
+
+4. Run database migrations:
+```bash
+npx prisma migrate deploy
 ```
 
-## Development
-
-Run the application in development mode:
+5. Start the development server:
 ```bash
 npm run start:dev
 ```
 
-The application will be available at `http://localhost:3000`
-
-## Testing
-
-Run the test suite:
-```bash
-npm test
-```
-
 ## API Documentation
 
-### Health Check
-- `GET /api/health` - Check application health status
+The API documentation is available through Swagger UI:
+```
+https://puppy.ccdev.space/api
+```
 
-### Waiting Lists
-- `GET /waiting-lists/date/{date}` - Get waiting list for a specific date
-- `GET /waiting-lists/month/{month}` - Get waiting lists for a specific month
+### Key Endpoints
+
+#### Waiting Lists
 - `POST /waiting-lists` - Create a new waiting list
-- `GET /waiting-lists/{id}` - Get a specific waiting list
-- `GET /waiting-lists/{id}/entries` - Get entries for a waiting list
+- `GET /waiting-lists/date/:date` - Get waiting list by date
+- `GET /waiting-lists/month/:month` - Get monthly waiting lists
 
-### Waiting List Entries
-- `POST /waiting-list-entries` - Create a new entry
-- `GET /waiting-list-entries/{id}` - Get a specific entry
-- `GET /waiting-list-entries/list?listId={id}` - Get entries for a list with optional search
+#### Entries
+- `POST /entries` - Create a new entry
+- `GET /entries` - Get entries with optional filters
+- `PATCH /entries/:id/status` - Update entry status
+- `PATCH /entries/:id/position` - Update entry position
 
-## Testing the Deployed Application
+## Deployment
 
-The application is deployed at http://159.89.31.47:3000. Here are some curl commands to test the endpoints:
+### Backend Deployment Flow
 
-### Health Check
+1. **Container Build**
+   - Push code to GitHub
+   - GitHub Actions builds Docker image
+   - Image pushed to DigitalOcean Container Registry
+
+2. **DigitalOcean Setup**
+   - Pull latest image on droplet
+   - Run container with Nginx reverse proxy
+   - Configure SSL with Cloudflare
+
+3. **Required GitHub Secrets**
+```
+DIGITALOCEAN_ACCESS_TOKEN
+DOCKER_REGISTRY
+DOCKER_IMAGE_NAME
+SSH_PRIVATE_KEY
+SSH_HOST
+SSH_USERNAME
+DATABASE_URL
+CLOUDFLARE_API_TOKEN
+CLOUDFLARE_ZONE_ID
+```
+
+
+
+## Development
+
+
+### Database Migrations
+
+Create a new migration:
 ```bash
-curl http://159.89.31.47:3000/api/health
+npx prisma migrate dev --name your_migration_name
 ```
 
-### Create a Waiting List
+Apply migrations:
 ```bash
-curl -X POST http://159.89.31.47:3000/waiting-lists \
-  -H "Content-Type: application/json" \
-  -d '{"date": "2024-03-20"}'
+npx prisma migrate deploy
 ```
 
-### Get Waiting List by Date
-```bash
-curl http://159.89.31.47:3000/waiting-lists/date/2024-03-20
-```
-
-### Get Waiting Lists by Month
-```bash
-curl http://159.89.31.47:3000/waiting-lists/month/2024-03
-```
-
-### Create a Waiting List Entry
-```bash
-curl -X POST http://159.89.31.47:3000/waiting-list-entries \
-  -H "Content-Type: application/json" \
-  -d '{
-    "listId": 1,
-    "customerName": "John Doe",
-    "phoneNumber": "1234567890",
-    "notes": "Special instructions"
-  }'
-```
-
-### Get Entries for a List
-```bash
-curl "http://159.89.31.47:3000/waiting-list-entries/list?listId=1"
-```
-
-## Docker
-
-Build the Docker image:
-```bash
-docker build -t puppy-spa-backend .
-```
-
-Run the container:
-```bash
-docker run -d \
-  -p 3000:3000 \
-  -e DATABASE_URL="your_database_url" \
-  --name puppy-spa-backend \
-  puppy-spa-backend
-```
-
-## CI/CD
-
-The project uses GitHub Actions for continuous integration and deployment:
-
-- Builds and tests on every push to the `main` branch
-- Builds and pushes Docker images to DigitalOcean Container Registry
-- Deploys to DigitalOcean Droplet
-
-Required GitHub Secrets:
-- `DIGITALOCEAN_ACCESS_TOKEN`
-- `REGISTRY`
-- `DROPLET_HOST`
-- `DROPLET_USERNAME`
-- `DROPLET_SSH_KEY`
-- `DATABASE_URL`
-
-## Project Structure
-
-```
-src/
-├── waiting-lists/           # Waiting list module
-│   ├── dto/                # Data Transfer Objects
-│   ├── entities/           # Database entities
-│   ├── waiting-lists.controller.ts
-│   └── waiting-lists.service.ts
-├── waiting-list-entries/   # Waiting list entries module
-│   ├── dto/
-│   ├── entities/
-│   ├── waiting-list-entries.controller.ts
-│   └── waiting-list-entries.service.ts
-├── prisma/                 # Prisma configuration
-├── app.module.ts           # Root module
-└── main.ts                 # Application entry point
-```
-
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
